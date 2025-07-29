@@ -1,6 +1,80 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 
+// Error Boundary Component
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('Map Error Boundary caught an error:', error, errorInfo);
+    this.setState({
+      error: error,
+      errorInfo: errorInfo
+    });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-lg p-8 max-w-2xl w-full">
+            <div className="text-center">
+              <div className="text-red-500 mb-4">
+                <svg className="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-4">Something went wrong with the map</h1>
+              <p className="text-gray-600 mb-6">
+                There was an error displaying the map. This might be due to invalid geographic data or a map rendering issue.
+              </p>
+              <div className="space-y-3">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300"
+                >
+                  Reload Page
+                </button>
+                <button
+                  onClick={() => this.setState({ hasError: false, error: null, errorInfo: null })}
+                  className="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-3 px-6 rounded-lg transition duration-300"
+                >
+                  Try Again
+                </button>
+              </div>
+              {process.env.NODE_ENV === 'development' && this.state.error && (
+                <details className="mt-6 text-left">
+                  <summary className="cursor-pointer text-sm text-gray-500 hover:text-gray-700">
+                    Show Error Details (Development)
+                  </summary>
+                  <div className="mt-2 p-4 bg-gray-100 rounded-md text-xs font-mono text-red-600 overflow-auto">
+                    <div className="mb-2">
+                      <strong>Error:</strong> {this.state.error && this.state.error.toString()}
+                    </div>
+                    <div>
+                      <strong>Stack Trace:</strong>
+                      <pre className="whitespace-pre-wrap">{this.state.errorInfo.componentStack}</pre>
+                    </div>
+                  </div>
+                </details>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 // Import Leaflet CSS and JS via CDN for direct use in the environment
 const leafletCss = document.createElement('link');
 leafletCss.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
@@ -17,6 +91,72 @@ const proj4Js = document.createElement('script');
 proj4Js.src = 'https://unpkg.com/proj4@2.9.2/dist/proj4.js';
 proj4Js.async = true;
 document.head.appendChild(proj4Js);
+
+// Load Leaflet MarkerCluster for better performance with loading detection
+const clusterCss = document.createElement('link');
+clusterCss.href = 'https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css';
+clusterCss.rel = 'stylesheet';
+clusterCss.onerror = () => console.warn('Failed to load MarkerCluster CSS');
+document.head.appendChild(clusterCss);
+
+const clusterDefaultCss = document.createElement('link');
+clusterDefaultCss.href = 'https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css';
+clusterDefaultCss.rel = 'stylesheet';
+clusterDefaultCss.onerror = () => console.warn('Failed to load MarkerCluster Default CSS');
+document.head.appendChild(clusterDefaultCss);
+
+const clusterJs = document.createElement('script');
+clusterJs.src = 'https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js';
+clusterJs.async = true;
+clusterJs.onerror = () => {
+  console.warn('Failed to load MarkerCluster JS - clustering will be disabled');
+  window.leafletClusteringAvailable = false;
+};
+clusterJs.onload = () => {
+  console.log('MarkerCluster loaded successfully');
+  window.leafletClusteringAvailable = true;
+};
+document.head.appendChild(clusterJs);
+
+// Add loading detection for Leaflet itself
+leafletJs.onerror = () => {
+  console.error('Failed to load Leaflet JS');
+  window.leafletAvailable = false;
+};
+leafletJs.onload = () => {
+  console.log('Leaflet loaded successfully');
+  window.leafletAvailable = true;
+};
+
+// Add loading detection for Proj4
+proj4Js.onerror = () => {
+  console.warn('Failed to load Proj4 JS - coordinate transformation may not work correctly');
+  window.proj4Available = false;
+};
+proj4Js.onload = () => {
+  console.log('Proj4 loaded successfully');
+  window.proj4Available = true;
+};
+
+// Load Leaflet Control Geocoder for address search
+const geocoderCss = document.createElement('link');
+geocoderCss.href = 'https://unpkg.com/leaflet-control-geocoder@2.4.0/dist/Control.Geocoder.css';
+geocoderCss.rel = 'stylesheet';
+geocoderCss.onerror = () => console.warn('Failed to load Geocoder CSS');
+document.head.appendChild(geocoderCss);
+
+const geocoderJs = document.createElement('script');
+geocoderJs.src = 'https://unpkg.com/leaflet-control-geocoder@2.4.0/dist/Control.Geocoder.js';
+geocoderJs.async = true;
+geocoderJs.onerror = () => {
+  console.warn('Failed to load Geocoder JS - address search will be disabled');
+  window.leafletGeocoderAvailable = false;
+};
+geocoderJs.onload = () => {
+  console.log('Leaflet Control Geocoder loaded successfully');
+  window.leafletGeocoderAvailable = true;
+};
+document.head.appendChild(geocoderJs);
 
 // Contract Management Modal Component
 const ContractModal = ({ plan, initialContractData, userId, onSave, onClose, loading }) => {
@@ -179,8 +319,8 @@ const initializeProjections = () => {
 
 // Transform coordinates from British National Grid to WGS84
 const transformCoordinates = (coordinates, geometryType) => {
-  if (!window.proj4) {
-    console.warn("Proj4js not loaded, coordinates may not display correctly");
+  if (!window.proj4Available || !window.proj4) {
+    console.warn("Proj4js not loaded or not available, coordinates may not display correctly");
     return coordinates;
   }
 
@@ -248,7 +388,7 @@ const transformCoordinates = (coordinates, geometryType) => {
 const transformGeoJSON = (geojsonFeatures) => {
   if (!geojsonFeatures || !Array.isArray(geojsonFeatures)) {
     console.warn("Invalid GeoJSON features provided:", geojsonFeatures);
-    return geojsonFeatures;
+    return [];
   }
 
   console.log("Transforming", geojsonFeatures.length, "features from BNG to WGS84");
@@ -256,19 +396,31 @@ const transformGeoJSON = (geojsonFeatures) => {
   let successCount = 0;
   let errorCount = 0;
 
-  const transformedFeatures = geojsonFeatures.map((feature, index) => {
-    if (!feature.geometry || !feature.geometry.coordinates) {
-      console.warn(`Feature ${index} has no geometry or coordinates:`, feature);
-      return feature;
-    }
-
+  const transformedFeatures = geojsonFeatures.filter(feature => {
+    // Filter out completely invalid features
+    return feature && feature.geometry && feature.geometry.coordinates;
+  }).map((feature, index) => {
     try {
+      // Validate geometry type
+      if (!feature.geometry.type) {
+        console.warn(`Feature ${index} has no geometry type:`, feature);
+        errorCount++;
+        return null;
+      }
+
       const originalSample = feature.geometry.coordinates[0] || feature.geometry.coordinates;
       
       const transformedCoordinates = transformCoordinates(
         feature.geometry.coordinates,
         feature.geometry.type
       );
+
+      // Validate transformed coordinates
+      if (!transformedCoordinates || (Array.isArray(transformedCoordinates) && transformedCoordinates.length === 0)) {
+        console.warn(`Feature ${index} transformation resulted in empty coordinates`);
+        errorCount++;
+        return null;
+      }
 
       const transformedSample = transformedCoordinates[0] || transformedCoordinates;
       
@@ -285,9 +437,9 @@ const transformGeoJSON = (geojsonFeatures) => {
     } catch (error) {
       console.error(`Error transforming GeoJSON feature ${index}:`, error, feature);
       errorCount++;
-      return feature; // Return original feature if transformation fails
+      return null; // Return null for failed transformations
     }
-  });
+  }).filter(feature => feature !== null); // Remove null features
 
   console.log(`Coordinate transformation complete: ${successCount} successful, ${errorCount} errors`);
   return transformedFeatures;
@@ -297,16 +449,19 @@ const transformGeoJSON = (geojsonFeatures) => {
 const MapDisplay = ({ geojsonFeatures }) => {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const layersRef = useRef([]);
 
   useEffect(() => {
-    if (typeof window.L === 'undefined' || !mapContainerRef.current) {
+    if (!window.leafletAvailable || typeof window.L === 'undefined' || !mapContainerRef.current) {
       console.warn("Leaflet not loaded or map container not ready.");
       return;
     }
 
     // Initialize projections if proj4 is available
-    if (typeof window.proj4 !== 'undefined') {
+    if (window.proj4Available && typeof window.proj4 !== 'undefined') {
       initializeProjections();
+    } else {
+      console.warn("Proj4 not available - coordinate transformation may not work correctly");
     }
 
     if (!mapInstanceRef.current) {
@@ -326,22 +481,35 @@ const MapDisplay = ({ geojsonFeatures }) => {
     }
 
     const map = mapInstanceRef.current;
+    if (!map) return;
 
-    // Remove existing GeoJSON layers
-    map.eachLayer((layer) => {
-      if (layer instanceof window.L.GeoJSON) {
-        map.removeLayer(layer);
-      }
-    });
+    // Remove existing layers safely
+    try {
+      layersRef.current.forEach(layer => {
+        if (map.hasLayer(layer)) {
+          map.removeLayer(layer);
+        }
+      });
+      layersRef.current = [];
+    } catch (error) {
+      console.warn('Error removing layers:', error);
+    }
 
     if (geojsonFeatures && geojsonFeatures.length > 0) {
-      // Transform coordinates from British National Grid to WGS84
-      const transformedFeatures = transformGeoJSON(geojsonFeatures);
-      
-      console.log("Original features sample:", geojsonFeatures[0]?.geometry?.coordinates?.slice(0, 2));
-      console.log("Transformed features sample:", transformedFeatures[0]?.geometry?.coordinates?.slice(0, 2));
+      try {
+        // Transform coordinates from British National Grid to WGS84
+        const transformedFeatures = transformGeoJSON(geojsonFeatures);
+        
+        if (!transformedFeatures || transformedFeatures.length === 0) {
+          console.warn('No valid features after transformation');
+          map.setView([51.505, -0.09], 6);
+          return;
+        }
+        
+        console.log("Original features sample:", geojsonFeatures[0]?.geometry?.coordinates?.slice(0, 2));
+        console.log("Transformed features sample:", transformedFeatures[0]?.geometry?.coordinates?.slice(0, 2));
 
-      const geoJsonLayer = window.L.geoJSON(transformedFeatures, {
+        const geoJsonLayer = window.L.geoJSON(transformedFeatures, {
         style: function (feature) {
           return {
             color: '#3b82f6',
@@ -363,28 +531,613 @@ const MapDisplay = ({ geojsonFeatures }) => {
           }
         }
       }).addTo(map);
+      
+      // Track the layer for safe removal
+      layersRef.current.push(geoJsonLayer);
 
-      // Fit map to transformed bounds
-      try {
-        map.fitBounds(geoJsonLayer.getBounds());
-        console.log("Map fitted to transformed feature bounds");
+        // Fit map to transformed bounds
+        try {
+          const bounds = geoJsonLayer.getBounds();
+          if (bounds && bounds.isValid()) {
+            map.fitBounds(bounds);
+            console.log("Map fitted to transformed feature bounds");
+          } else {
+            console.warn("Invalid bounds from GeoJSON layer");
+            map.setView([51.505, -0.09], 6);
+          }
+        } catch (error) {
+          console.error("Error fitting map bounds:", error);
+          map.setView([51.505, -0.09], 6); // Fallback to UK center
+        }
       } catch (error) {
-        console.error("Error fitting map bounds:", error);
-        map.setView([51.505, -0.09], 6); // Fallback to UK center
+        console.error("Error creating GeoJSON layer:", error);
+        map.setView([51.505, -0.09], 6);
       }
     } else {
       map.setView([51.505, -0.09], 6);
     }
 
     return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
+      try {
+        if (mapInstanceRef.current) {
+          // Clean up layers first
+          layersRef.current.forEach(layer => {
+            if (mapInstanceRef.current.hasLayer(layer)) {
+              mapInstanceRef.current.removeLayer(layer);
+            }
+          });
+          layersRef.current = [];
+          
+          // Remove the map
+          mapInstanceRef.current.remove();
+          mapInstanceRef.current = null;
+        }
+      } catch (error) {
+        console.warn('Error cleaning up map:', error);
       }
     };
   }, [geojsonFeatures]);
 
   return <div ref={mapContainerRef} className="w-full h-[500px] rounded-md shadow-inner" style={{ minHeight: '300px' }}></div>;
+};
+
+// Helper function to get color for plan types
+const getPlanTypeColor = (planType) => {
+  const colors = {
+    'BPS': { color: '#3b82f6', fillColor: '#60a5fa' },
+    'CSS': { color: '#10b981', fillColor: '#34d399' },
+    'CSS_2025': { color: '#10b981', fillColor: '#34d399' },
+    'SFI2022': { color: '#8b5cf6', fillColor: '#a78bfa' },
+    'SFI2023': { color: '#8b5cf6', fillColor: '#a78bfa' },
+    'SFI2024': { color: '#8b5cf6', fillColor: '#a78bfa' },
+    'UKHAB': { color: '#f59e0b', fillColor: '#fbbf24' },
+    'UKHAB_V2': { color: '#f59e0b', fillColor: '#fbbf24' },
+    'LAND_MANAGEMENT': { color: '#6366f1', fillColor: '#818cf8' },
+    'LAND_MANAGEMENT_V2': { color: '#6366f1', fillColor: '#818cf8' },
+    'PEAT_ASSESSMENT': { color: '#f97316', fillColor: '#fb923c' },
+    'OSMM': { color: '#6b7280', fillColor: '#9ca3af' },
+    'USER': { color: '#64748b', fillColor: '#94a3b8' },
+    'ESS': { color: '#059669', fillColor: '#10b981' },
+    'FER': { color: '#65a30d', fillColor: '#84cc16' },
+    'HEALTHY_HEDGEROWS': { color: '#0d9488', fillColor: '#14b8a6' },
+  };
+  return colors[planType] || { color: '#06b6d4', fillColor: '#22d3ee' };
+};
+
+// Multi-Plan Map Display Component
+const MultiPlanMapDisplay = ({ plans, onPlanClick, onViewFeatures, apiKey, loading }) => {
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const layersRef = useRef([]);
+  const clusterGroupRef = useRef(null);
+  const baseLayers = useRef({});
+  const [planFeatures, setPlanFeatures] = useState({});
+  const [loadingFeatures, setLoadingFeatures] = useState(false);
+
+  useEffect(() => {
+    if (!window.leafletAvailable || typeof window.L === 'undefined' || !mapContainerRef.current) {
+      console.warn("Leaflet not loaded or map container not ready.");
+      return;
+    }
+
+    // Initialize projections if proj4 is available
+    if (window.proj4Available && typeof window.proj4 !== 'undefined') {
+      initializeProjections();
+    } else {
+      console.warn("Proj4 not available - coordinate transformation may not work correctly");
+    }
+
+    if (!mapInstanceRef.current) {
+      mapInstanceRef.current = window.L.map(mapContainerRef.current, {
+        center: [51.505, -0.09],
+        zoom: 6,
+        zoomControl: false
+      });
+
+      // Create base layers
+      const satelliteLayer = window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+      });
+
+      const osmLayer = window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      });
+
+      const osmHumanitarianLayer = window.L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles style by <a href="https://www.hotosm.org/" target="_blank">Humanitarian OpenStreetMap Team</a>'
+      });
+
+      // Add default layer
+      satelliteLayer.addTo(mapInstanceRef.current);
+
+      // Store layers for layer control
+      baseLayers.current = {
+        "Satellite": satelliteLayer,
+        "OpenStreetMap": osmLayer,
+        "Humanitarian": osmHumanitarianLayer
+      };
+
+      // Add layer control
+      window.L.control.layers(baseLayers.current, null, {
+        position: 'topright'
+      }).addTo(mapInstanceRef.current);
+
+      // Add zoom control below layer control
+      window.L.control.zoom({
+        position: 'topright'
+      }).addTo(mapInstanceRef.current);
+
+      // Add scale control
+      window.L.control.scale({
+        position: 'bottomleft',
+        imperial: false
+      }).addTo(mapInstanceRef.current);
+
+      // Add geocoder search control if available
+      if (window.leafletGeocoderAvailable && window.L.Control && window.L.Control.Geocoder) {
+        try {
+          const geocoder = window.L.Control.geocoder({
+            defaultMarkGeocode: false,
+            position: 'topleft',
+            placeholder: 'Search for places...',
+            errorMessage: 'No results found',
+            geocoder: window.L.Control.Geocoder.nominatim({
+              geocodingQueryParams: {
+                countrycodes: 'gb', // Limit to UK
+                bounded: 1,
+                viewbox: '-8.5,49.5,2.0,61.0' // UK bounding box
+              }
+            })
+          })
+          .on('markgeocode', function(e) {
+            const latlng = e.geocode.center;
+            mapInstanceRef.current.setView(latlng, 15);
+            
+            // Add a temporary marker
+            const marker = window.L.marker(latlng)
+              .addTo(mapInstanceRef.current)
+              .bindPopup(`<strong>${e.geocode.name}</strong><br/><small>Search result</small>`)
+              .openPopup();
+            
+            // Remove marker after 5 seconds
+            setTimeout(() => {
+              if (mapInstanceRef.current && mapInstanceRef.current.hasLayer(marker)) {
+                mapInstanceRef.current.removeLayer(marker);
+              }
+            }, 5000);
+          })
+          .addTo(mapInstanceRef.current);
+          
+          console.log('✅ Geocoder search control added to map');
+        } catch (error) {
+          console.warn('Failed to add geocoder control:', error);
+        }
+      } else {
+        console.log('Geocoder not available, skipping search control');
+      }
+    }
+
+    return () => {
+      try {
+        if (mapInstanceRef.current) {
+          // Clean up all layers and cluster groups
+          if (clusterGroupRef.current && mapInstanceRef.current.hasLayer(clusterGroupRef.current)) {
+            mapInstanceRef.current.removeLayer(clusterGroupRef.current);
+            clusterGroupRef.current = null;
+          }
+          
+          layersRef.current.forEach(layer => {
+            if (mapInstanceRef.current.hasLayer(layer)) {
+              mapInstanceRef.current.removeLayer(layer);
+            }
+          });
+          layersRef.current = [];
+          
+          mapInstanceRef.current.remove();
+          mapInstanceRef.current = null;
+        }
+      } catch (error) {
+        console.warn('Error cleaning up multi-plan map:', error);
+      }
+    };
+  }, []);
+
+  // Load features for all plans when plans change
+  useEffect(() => {
+    if (plans.length === 0 || !apiKey) {
+      console.log('Map features loading skipped:', { plansCount: plans.length, hasApiKey: !!apiKey });
+      return;
+    }
+
+    const loadAllPlanFeatures = async () => {
+      console.log(`Starting to load features for ${plans.length} plans`);
+      setLoadingFeatures(true);
+      const newPlanFeatures = {};
+      let totalFeatures = 0;
+      let successfulPlans = 0;
+      let failedPlans = 0;
+      
+      try {
+        // Load features for each plan (limit to avoid API overload - more plans for better map experience)
+        const maxPlansToLoad = 50;
+        const plansToLoad = plans.slice(0, maxPlansToLoad);
+        console.log(`Loading features for ${plansToLoad.length} plans (limited from ${plans.length})`);
+        
+        const planPromises = plansToLoad.map(async (plan) => {
+          try {
+            const url = `https://integration-api.thelandapp.com/projects/${plan.id}/features?apiKey=${apiKey}&page=0&size=1000`;
+            console.log(`Fetching features for plan ${plan.id} (${plan.name}):`, url);
+            
+            const response = await fetch(url);
+            if (response.ok) {
+              const data = await response.json();
+              console.log(`Plan ${plan.id} API response:`, {
+                hasData: !!data.data,
+                featureCount: data.data ? data.data.length : 0,
+                dataKeys: data ? Object.keys(data) : [],
+                sampleFeature: data.data && data.data.length > 0 ? data.data[0] : null
+              });
+              
+              if (data.data && data.data.length > 0) {
+                newPlanFeatures[plan.id] = {
+                  plan: plan,
+                  features: data.data
+                };
+                totalFeatures += data.data.length;
+                successfulPlans++;
+                console.log(`✅ Plan ${plan.id}: loaded ${data.data.length} features`);
+              } else {
+                console.log(`⚠️ Plan ${plan.id}: no features found`);
+              }
+            } else {
+              console.error(`❌ Plan ${plan.id}: HTTP ${response.status} - ${response.statusText}`);
+              failedPlans++;
+            }
+          } catch (error) {
+            console.error(`❌ Plan ${plan.id}: Failed to load features:`, error);
+            failedPlans++;
+          }
+        });
+
+        await Promise.all(planPromises);
+        
+        console.log('Feature loading complete:', {
+          totalPlans: plansToLoad.length,
+          successfulPlans,
+          failedPlans,
+          totalFeatures,
+          plansWithFeatures: Object.keys(newPlanFeatures).length
+        });
+        
+        setPlanFeatures(newPlanFeatures);
+      } catch (error) {
+        console.error('Error loading plan features:', error);
+      } finally {
+        setLoadingFeatures(false);
+      }
+    };
+
+    loadAllPlanFeatures();
+  }, [plans, apiKey]);
+
+  // Update map display when features change
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) {
+      console.log('Map update skipped: no map instance');
+      return;
+    }
+
+    console.log('Updating map display with features:', {
+      planFeaturesKeys: Object.keys(planFeatures),
+      totalPlansWithFeatures: Object.keys(planFeatures).length,
+      mapExists: !!map
+    });
+
+    // Remove existing layers safely
+    try {
+      // Remove cluster group if it exists
+      if (clusterGroupRef.current && map.hasLayer(clusterGroupRef.current)) {
+        console.log('Removing existing cluster group');
+        map.removeLayer(clusterGroupRef.current);
+        clusterGroupRef.current = null;
+      }
+      
+      // Remove all tracked layers
+      console.log(`Removing ${layersRef.current.length} existing layers`);
+      layersRef.current.forEach(layer => {
+        if (map.hasLayer(layer)) {
+          map.removeLayer(layer);
+        }
+      });
+      layersRef.current = [];
+    } catch (error) {
+      console.warn('Error removing layers:', error);
+    }
+
+    if (Object.keys(planFeatures).length === 0) {
+      console.log('No plan features to display, setting default map view');
+      map.setView([51.505, -0.09], 6);
+      return;
+    }
+
+    const allLayers = [];
+
+    // Create cluster group if MarkerCluster is available and we have many plans
+    if (window.leafletClusteringAvailable && typeof window.L.MarkerClusterGroup !== 'undefined' && Object.keys(planFeatures).length > 5) {
+      try {
+        clusterGroupRef.current = window.L.markerClusterGroup({
+          chunkedLoading: true,
+          spiderfyOnMaxZoom: true,
+          showCoverageOnHover: false,
+          zoomToBoundsOnClick: true,
+          maxClusterRadius: 80
+        });
+        console.log('Cluster group created for', Object.keys(planFeatures).length, 'plans');
+      } catch (error) {
+        console.warn('Failed to create cluster group:', error);
+        clusterGroupRef.current = null;
+      }
+    } else if (Object.keys(planFeatures).length > 5) {
+      console.log('Clustering disabled: MarkerCluster not available or not loaded');
+    }
+
+    // Add features for each plan
+    console.log(`Processing ${Object.values(planFeatures).length} plans with features`);
+    Object.values(planFeatures).forEach(({ plan, features }) => {
+      if (features && features.length > 0) {
+        console.log(`Processing plan ${plan.id} (${plan.name}) with ${features.length} features`);
+        console.log('Sample feature geometry:', features[0]?.geometry);
+        
+        try {
+          const transformedFeatures = transformGeoJSON(features);
+          
+          if (!transformedFeatures || transformedFeatures.length === 0) {
+            console.warn(`No valid features for plan ${plan.id} after transformation`);
+            return;
+          }
+          
+          console.log(`Plan ${plan.id}: ${features.length} original → ${transformedFeatures.length} transformed features`);
+          console.log('Sample transformed feature:', transformedFeatures[0]?.geometry);
+          
+          const planColors = getPlanTypeColor(plan.planType);
+          console.log(`Plan ${plan.id} colors:`, planColors);
+          
+          const geoJsonLayer = window.L.geoJSON(transformedFeatures, {
+          style: function (feature) {
+            return {
+              color: planColors.color,
+              weight: 2,
+              opacity: 0.8,
+              fillColor: planColors.fillColor,
+              fillOpacity: 0.3
+            };
+          },
+          onEachFeature: function (feature, layer) {
+            let popupContent = `
+              <div class="p-2">
+                <h4 class="font-bold text-sm text-indigo-700 mb-2">${plan.name}</h4>
+                <div class="text-xs space-y-1">
+                  <div><strong>Plan Type:</strong> ${plan.planType}</div>
+                  <div><strong>Plan ID:</strong> ${plan.id}</div>
+                  <div><strong>Created:</strong> ${new Date(plan.createdAt).toLocaleDateString()}</div>
+                  <div><strong>Updated:</strong> ${new Date(plan.updatedAt).toLocaleDateString()}</div>
+                </div>
+                <div class="mt-2 flex flex-col sm:flex-row gap-1 sm:gap-2">
+                  <button onclick="window.handlePlanMapClick('${plan.id}')" 
+                    class="px-3 py-2 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700 transition-colors">
+                    View Details
+                  </button>
+                  <button onclick="window.handleViewPlanFeatures('${plan.id}')" 
+                    class="px-3 py-2 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors">
+                    View Features
+                  </button>
+                </div>
+              </div>
+            `;
+            layer.bindPopup(popupContent, { maxWidth: 300 });
+          }
+        }).addTo(map);
+
+        console.log(`✅ Plan ${plan.id}: GeoJSON layer created and added to map`);
+        console.log('Layer bounds:', {
+          hasBounds: !!geoJsonLayer.getBounds,
+          bounds: geoJsonLayer.getBounds ? geoJsonLayer.getBounds() : null
+        });
+
+        allLayers.push(geoJsonLayer);
+        layersRef.current.push(geoJsonLayer);
+
+          // If clustering is enabled, also add a centroid marker for clustering
+          if (clusterGroupRef.current) {
+            try {
+              const bounds = geoJsonLayer.getBounds();
+              
+              if (!bounds || !bounds.isValid()) {
+                console.warn(`Invalid bounds for plan ${plan.id}, skipping centroid marker`);
+                return;
+              }
+              
+              const center = bounds.getCenter();
+            
+            // Create a custom icon for plan markers
+            const isMobile = window.innerWidth < 640;
+            const iconSize = isMobile ? 20 : 24;
+            const fontSize = isMobile ? 8 : 10;
+            
+            const planIcon = window.L.divIcon({
+              className: 'plan-marker',
+              html: `<div style="background-color: ${planColors.fillColor}; border: 2px solid ${planColors.color}; width: ${iconSize}px; height: ${iconSize}px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: ${fontSize}px; font-weight: bold; color: white; text-shadow: 1px 1px 1px rgba(0,0,0,0.5);">${plan.planType.charAt(0)}</div>`,
+              iconSize: [iconSize, iconSize],
+              iconAnchor: [iconSize/2, iconSize/2]
+            });
+
+              const marker = window.L.marker(center, { icon: planIcon });
+              marker.bindPopup(popupContent, { maxWidth: 300 });
+              clusterGroupRef.current.addLayer(marker);
+            } catch (error) {
+              console.warn('Failed to create centroid marker for plan:', plan.id, error);
+            }
+          }
+        } catch (error) {
+          console.error(`Error creating GeoJSON layer for plan ${plan.id}:`, error);
+        }
+      }
+    });
+
+    // Add cluster group to map if created
+    if (clusterGroupRef.current) {
+      try {
+        map.addLayer(clusterGroupRef.current);
+      } catch (error) {
+        console.warn('Failed to add cluster group to map:', error);
+      }
+    }
+
+    // Fit map to all features
+    console.log(`Final step: fitting map to ${allLayers.length} layers`);
+    if (allLayers.length > 0) {
+      try {
+        const group = new window.L.featureGroup(allLayers);
+        const bounds = group.getBounds();
+        
+        console.log('Combined bounds:', {
+          bounds: bounds,
+          isValid: bounds ? bounds.isValid() : false,
+          southwest: bounds ? bounds.getSouthWest() : null,
+          northeast: bounds ? bounds.getNorthEast() : null
+        });
+        
+        if (bounds && bounds.isValid()) {
+          map.fitBounds(bounds.pad(0.1));
+          console.log('✅ Map fitted to feature bounds');
+        } else {
+          console.warn("Invalid bounds from feature group, using default view");
+          map.setView([51.505, -0.09], 6);
+        }
+      } catch (error) {
+        console.error("Error fitting map bounds:", error);
+        map.setView([51.505, -0.09], 6);
+      }
+    } else {
+      console.log('No layers to fit map bounds to, using default view');
+      map.setView([51.505, -0.09], 6);
+    }
+  }, [planFeatures]);
+
+  // Set up global handlers for popup buttons
+  useEffect(() => {
+    window.handlePlanMapClick = (planId) => {
+      const plan = plans.find(p => p.id === planId);
+      if (plan && onPlanClick) {
+        onPlanClick(plan);
+      }
+    };
+
+    window.handleViewPlanFeatures = (planId) => {
+      const plan = plans.find(p => p.id === planId);
+      if (plan && onViewFeatures) {
+        onViewFeatures(plan);
+      }
+    };
+
+    return () => {
+      delete window.handlePlanMapClick;
+      delete window.handleViewPlanFeatures;
+    };
+  }, [plans, onPlanClick, onViewFeatures]);
+
+  return (
+    <div className="space-y-4">
+      {loadingFeatures && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-2 rounded-md text-sm">
+          Loading map features for {Math.min(plans.length, 50)} of {plans.length} plans...
+          {plans.length > 50 && (
+            <div className="text-xs mt-1 text-blue-600">
+              Showing first 50 plans for optimal performance. Use filters to narrow down your selection.
+            </div>
+          )}
+        </div>
+      )}
+      
+      {!loadingFeatures && plans.length > 0 && Object.keys(planFeatures).length === 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-2 rounded-md text-sm">
+          <div className="font-medium">No geographic features found</div>
+          <div className="text-xs mt-1">
+            The selected plans don't have geographic data or features couldn't be loaded. 
+            Check the browser console for detailed information.
+          </div>
+        </div>
+      )}
+      <div ref={mapContainerRef} className="w-full h-[400px] sm:h-[500px] lg:h-[600px] rounded-md shadow-inner border border-gray-200" style={{ minHeight: '300px' }}></div>
+      {Object.keys(planFeatures).length > 0 && (
+        <div className="space-y-3">
+          <div className="text-sm text-gray-600">
+            Showing {Object.keys(planFeatures).length} plans with geographic features on the map.
+            {plans.length > Object.keys(planFeatures).length && (
+              <span> ({plans.length - Object.keys(planFeatures).length} plans have no geographic features)</span>
+            )}
+          </div>
+          
+          {/* Plan Type Legend */}
+          <div className="bg-white border border-gray-200 rounded-lg p-3">
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">Plan Type Legend</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 text-xs">
+              {Array.from(new Set(Object.values(planFeatures).map(pf => pf.plan.planType))).sort().map(planType => {
+                const colors = getPlanTypeColor(planType);
+                return (
+                  <div key={planType} className="flex items-center space-x-2">
+                    <div 
+                      className="w-4 h-4 rounded border-2" 
+                      style={{ 
+                        backgroundColor: colors.fillColor, 
+                        borderColor: colors.color 
+                      }}
+                    ></div>
+                    <span className="text-gray-700">{planType}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// View Toggle Component
+const ViewToggle = ({ currentView, onViewChange }) => {
+  return (
+    <div className="flex items-center justify-center bg-gray-100 rounded-lg p-1 shadow-sm">
+      <button
+        onClick={() => onViewChange('table')}
+        className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+          currentView === 'table'
+            ? 'bg-white text-indigo-700 shadow-sm'
+            : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+        }`}
+      >
+        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 6h18m-9 8h9m-9 4h9m-9-8h9m-9 4h9" />
+        </svg>
+        <span className="text-sm sm:text-base">Table</span>
+      </button>
+      <button
+        onClick={() => onViewChange('map')}
+        className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+          currentView === 'map'
+            ? 'bg-white text-indigo-700 shadow-sm'
+            : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+        }`}
+      >
+        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+        </svg>
+        <span className="text-sm sm:text-base">Map</span>
+      </button>
+    </div>
+  );
 };
 
 // Main App component
@@ -431,6 +1184,12 @@ const App = () => {
   const [contracts, setContracts] = useState({});
   const [isAuthReady, setIsAuthReady] = useState(false);
   const [databaseMode, setDatabaseMode] = useState('local'); // 'supabase' or 'local'
+
+  // State for View Toggle
+  const [currentView, setCurrentView] = useState(() => {
+    const savedView = localStorage.getItem('defra-app-view');
+    return savedView || 'table';
+  });
 
   // State for Modals
   const [showContractModal, setShowContractModal] = useState(false);
@@ -495,6 +1254,11 @@ const App = () => {
   useEffect(() => {
     localStorage.setItem('defra-app-filters', JSON.stringify(filters));
   }, [filters]);
+
+  // Save view preference to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('defra-app-view', currentView);
+  }, [currentView]);
 
   // Apply client-side filters whenever filters change (but not when plans are empty)
   useEffect(() => {
@@ -948,10 +1712,10 @@ const App = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      const allPlanTypes = ['BPS', 'CSS', 'FRM', 'RLE1', 'OWNERSHIP', 'FR1', 'SALES_PLAN', 'VALUATION_PLAN', 
-                        'ESS', 'UKHAB', 'UKHAB_V2', 'USER', 'LAND_MANAGEMENT', 'LAND_MANAGEMENT_V2', 'SFI2022', 
-                        'SFI2023', 'SFI2024', 'PEAT_ASSESSMENT', 'OSMM', 'FER', 'WCT', 'BLANK_SURVEY', 'SOIL_SURVEY', 
-                        'AGROFORESTRY', 'CSS_2025', 'HEALTHY_HEDGEROWS', 'SAF'];
+                      const allPlanTypes = ['AGROFORESTRY', 'BPS', 'UKHAB', 'UKHAB_V2', 'USER', 'CSS', 'CSS_2025', 
+                        'ESS', 'FER', 'FRM', 'BLANK_SURVEY', 'HEALTHY_HEDGEROWS', 'LAND_MANAGEMENT', 'LAND_MANAGEMENT_V2', 
+                        'FR1', 'OSMM', 'OWNERSHIP', 'PEAT_ASSESSMENT', 'RLE1', 'SALES_PLAN', 'SAF', 'SOIL_SURVEY', 
+                        'SFI2022', 'SFI2023', 'SFI2024', 'VALUATION_PLAN', 'WCT'];
                       setFilters(prev => ({ ...prev, planTypes: allPlanTypes }));
                     }}
                     className="px-2 py-1 text-xs bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded transition-colors duration-200"
@@ -967,36 +1731,36 @@ const App = () => {
                   </button>
                 </div>
               </div>
-              <div className="bg-white border border-gray-300 rounded-lg p-3 max-h-64 overflow-y-auto">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              <div className="bg-white border border-gray-300 rounded-lg p-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1 text-xs">
                   {[
+                    { value: 'AGROFORESTRY', label: 'Agroforestry Design' },
                     { value: 'BPS', label: 'Basic Payment Scheme' },
-                    { value: 'CSS', label: 'Countryside Stewardship' },
-                    { value: 'FRM', label: 'Field Risk Map' },
-                    { value: 'RLE1', label: 'RLE1 form' },
-                    { value: 'OWNERSHIP', label: 'Ownership Boundary' },
-                    { value: 'FR1', label: 'Land Registration (FR1)' },
-                    { value: 'SALES_PLAN', label: 'Sales Plan' },
-                    { value: 'VALUATION_PLAN', label: 'Valuation Plan' },
-                    { value: 'ESS', label: 'Environmental Stewardship' },
                     { value: 'UKHAB', label: 'Baseline Habitat Assessment' },
                     { value: 'UKHAB_V2', label: 'Baseline Habitat Assessment (UKHab 2.0)' },
-                    { value: 'USER', label: 'Blank user plan' },
+                    { value: 'USER', label: 'Blank User Plan' },
+                    { value: 'CSS', label: 'Countryside Stewardship' },
+                    { value: 'CSS_2025', label: 'Countryside Stewardship Higher-Tier (2025)' },
+                    { value: 'ESS', label: 'Environmental Stewardship' },
+                    { value: 'FER', label: 'Farm Environment Record' },
+                    { value: 'FRM', label: 'Field Risk Map' },
+                    { value: 'BLANK_SURVEY', label: 'General Data Collection (Mobile Survey)' },
+                    { value: 'HEALTHY_HEDGEROWS', label: 'Healthy Hedgerows Survey' },
                     { value: 'LAND_MANAGEMENT', label: 'Land Management Plan' },
                     { value: 'LAND_MANAGEMENT_V2', label: 'Land Management Plan (UKHab 2.0)' },
+                    { value: 'FR1', label: 'Land Registration (FR1)' },
+                    { value: 'OSMM', label: 'Ordnance Survey MasterMap' },
+                    { value: 'OWNERSHIP', label: 'Ownership Boundary' },
+                    { value: 'PEAT_ASSESSMENT', label: 'Peat Condition Assessment' },
+                    { value: 'RLE1', label: 'RLE1 Form' },
+                    { value: 'SALES_PLAN', label: 'Sales Plan' },
+                    { value: 'SAF', label: 'Single Application Form' },
+                    { value: 'SOIL_SURVEY', label: 'Soil Sampling' },
                     { value: 'SFI2022', label: 'Sustainable Farm Incentive 22' },
                     { value: 'SFI2023', label: 'Sustainable Farm Incentive 23' },
                     { value: 'SFI2024', label: 'Sustainable Farm Incentive 24' },
-                    { value: 'PEAT_ASSESSMENT', label: 'Peat Condition Assessment' },
-                    { value: 'OSMM', label: 'Ordnance Survey MasterMap' },
-                    { value: 'FER', label: 'Farm Environment Record' },
-                    { value: 'WCT', label: 'Woodland Creation Template' },
-                    { value: 'BLANK_SURVEY', label: 'General Data Collection (Mobile Survey)' },
-                    { value: 'SOIL_SURVEY', label: 'Soil Sampling' },
-                    { value: 'AGROFORESTRY', label: 'Agroforestry Design' },
-                    { value: 'CSS_2025', label: 'Countryside Stewardship Higher-Tier (2025)' },
-                    { value: 'HEALTHY_HEDGEROWS', label: 'Healthy Hedgerows Survey' },
-                    { value: 'SAF', label: 'Single Application Form' }
+                    { value: 'VALUATION_PLAN', label: 'Valuation Plan' },
+                    { value: 'WCT', label: 'Woodland Creation Template' }
                   ].map(planType => (
                     <label key={planType.value} className="flex items-start space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded text-sm">
                       <input
@@ -1023,7 +1787,7 @@ const App = () => {
                 </div>
               </div>
               <p className="text-xs text-gray-500 mt-2">
-                {filters.planTypes.length} of 25 plan types selected
+                {filters.planTypes.length} of 27 plan types selected
               </p>
             </div>
             
@@ -1421,12 +2185,18 @@ const App = () => {
 
       {plans.length > 0 && (
         <div className="bg-white p-6 rounded-xl shadow-lg w-full mx-4">
-          <h2 className="text-2xl font-bold text-indigo-700 mb-4">
-            Your Plans ({filteredPlans.length} of {plans.length})
-            {filteredPlans.length !== plans.length && (
-              <span className="text-sm font-normal text-gray-600 ml-2">filtered</span>
-            )}
-          </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+            <h2 className="text-2xl font-bold text-indigo-700 mb-4 sm:mb-0">
+              Your Plans ({filteredPlans.length} of {plans.length})
+              {filteredPlans.length !== plans.length && (
+                <span className="text-sm font-normal text-gray-600 ml-2">filtered</span>
+              )}
+            </h2>
+            <ViewToggle 
+              currentView={currentView} 
+              onViewChange={setCurrentView}
+            />
+          </div>
           {filteredPlans.length === 0 ? (
             <div className="text-center py-8">
               <div className="text-gray-500 mb-4">
@@ -1464,6 +2234,17 @@ const App = () => {
                 Clear All Filters
               </button>
             </div>
+          ) : currentView === 'map' ? (
+            <MultiPlanMapDisplay 
+              plans={filteredPlans}
+              apiKey={landAppApiKey}
+              onPlanClick={(plan) => {
+                // Could open a modal or navigate to plan details
+                console.log('Clicked plan:', plan);
+              }}
+              onViewFeatures={handleViewFeatures}
+              loading={loading}
+            />
           ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -1786,4 +2567,13 @@ const App = () => {
   );
 };
 
-export default App;
+// Wrap App with Error Boundary
+const AppWithErrorBoundary = () => {
+  return (
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  );
+};
+
+export default AppWithErrorBoundary;
