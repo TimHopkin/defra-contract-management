@@ -1218,6 +1218,441 @@ const ViewToggle = ({ currentView, onViewChange }) => {
   );
 };
 
+// Help Guide Modal Component
+const HelpGuideModal = ({ isOpen, onClose }) => {
+  const [expandedSection, setExpandedSection] = useState('getting-started');
+
+  const toggleSection = (sectionId) => {
+    setExpandedSection(expandedSection === sectionId ? null : sectionId);
+  };
+
+  // Handle Escape key to close modal
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, onClose]);
+
+  const Section = ({ id, title, children }) => {
+    const isExpanded = expandedSection === id;
+    return (
+      <div className="border border-gray-200 rounded-lg mb-4">
+        <button
+          onClick={() => toggleSection(id)}
+          className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset transition-colors duration-200"
+        >
+          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+          <svg
+            className={`w-5 h-5 text-gray-500 transform transition-transform duration-200 ${
+              isExpanded ? 'rotate-180' : ''
+            }`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {isExpanded && (
+          <div className="px-4 pb-4 border-t border-gray-100">
+            <div className="pt-4">
+              {children}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div 
+      className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Modal Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div>
+            <h1 className="text-2xl font-bold text-indigo-700">
+              Land App API Analysis Tool - Help Guide
+            </h1>
+            <p className="text-sm text-gray-600 mt-1">
+              Complete guide to using the Defra Environmental Contract Management Platform
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors duration-200"
+            title="Close Help Guide"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Modal Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+
+      <Section id="getting-started" title="🚀 Getting Started">
+        <div className="space-y-4">
+          <h4 className="font-semibold text-gray-800">What is this tool?</h4>
+          <p className="text-gray-700">
+            The Land App API Analysis Tool is designed to help you manage environmental contracts and land management plans. 
+            It integrates with the Land App API to fetch and display your environmental plans, allowing you to view them in 
+            both table and map formats, manage associated contracts, and export data.
+          </p>
+          
+          <h4 className="font-semibold text-gray-800">Database Modes</h4>
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <p className="text-sm text-gray-700 mb-2">
+              <strong>🟢 Supabase Mode:</strong> Full cloud database functionality with data persistence and sync
+            </p>
+            <p className="text-sm text-gray-700">
+              <strong>🟡 Local Storage Mode:</strong> Fallback mode that stores data locally in your browser
+            </p>
+          </div>
+
+          <h4 className="font-semibold text-gray-800">First Steps</h4>
+          <ol className="list-decimal list-inside space-y-2 text-gray-700">
+            <li>Enter your Land App API key in the input field at the top</li>
+            <li>Click "Load Plans" to fetch your environmental plans</li>
+            <li>Use the Table/Map tabs to switch between different views</li>
+            <li>Start exploring your data!</li>
+          </ol>
+        </div>
+      </Section>
+
+      <Section id="land-app-api" title="🔗 Land App API Integration">
+        <div className="space-y-4">
+          <h4 className="font-semibold text-gray-800">Setting up API Access</h4>
+          <p className="text-gray-700">
+            To connect to the Land App API, you'll need a valid API key:
+          </p>
+          <ol className="list-decimal list-inside space-y-2 text-gray-700">
+            <li>Obtain your API key from your Land App account</li>
+            <li>Enter the key in the "Land App API Key" field</li>
+            <li>Your key will be saved locally for future sessions</li>
+            <li>Click "Load Plans" to fetch your data</li>
+          </ol>
+
+          <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>💡 Tip:</strong> Your API key is stored securely in your browser's local storage and is never sent to external servers.
+            </p>
+          </div>
+
+          <h4 className="font-semibold text-gray-800">What Data is Fetched?</h4>
+          <ul className="list-disc list-inside space-y-1 text-gray-700">
+            <li>Environmental plans and their details</li>
+            <li>Geographic boundaries and coordinates</li>
+            <li>Plan types (BPS, CS, ELS, etc.)</li>
+            <li>Creation and modification dates</li>
+            <li>Associated map references</li>
+          </ul>
+        </div>
+      </Section>
+
+      <Section id="table-view" title="📊 Table View">
+        <div className="space-y-4">
+          <h4 className="font-semibold text-gray-800">Understanding the Table</h4>
+          <p className="text-gray-700">
+            The table view displays all your environmental plans in a structured format with the following columns:
+          </p>
+          <ul className="list-disc list-inside space-y-1 text-gray-700">
+            <li><strong>Plan Name:</strong> The name/identifier of your environmental plan</li>
+            <li><strong>Plan Type:</strong> Type of scheme (BPS, CS, ELS, HLS, RDPE, SFI)</li>
+            <li><strong>Created:</strong> When the plan was first created</li>
+            <li><strong>Updated:</strong> When the plan was last modified</li>
+            <li><strong>Actions:</strong> Available operations (View Details, Manage Contract)</li>
+          </ul>
+
+          <h4 className="font-semibold text-gray-800">Plan Type Colors</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 rounded bg-blue-500"></div>
+              <span>BPS - Basic Payment Scheme</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 rounded bg-green-500"></div>
+              <span>CS - Countryside Stewardship</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 rounded bg-yellow-500"></div>
+              <span>ELS - Entry Level Stewardship</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 rounded bg-purple-500"></div>
+              <span>HLS - Higher Level Stewardship</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 rounded bg-red-500"></div>
+              <span>RDPE - Rural Development</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 rounded bg-cyan-500"></div>
+              <span>SFI - Sustainable Farming Incentive</span>
+            </div>
+          </div>
+
+          <h4 className="font-semibold text-gray-800">Available Actions</h4>
+          <ul className="list-disc list-inside space-y-1 text-gray-700">
+            <li><strong>View Details:</strong> Opens detailed plan information with features and geographic data</li>
+            <li><strong>Manage Contract:</strong> Create or edit contracts associated with the plan</li>
+            <li><strong>Download GeoJSON:</strong> Export plan boundaries as geographic data files</li>
+          </ul>
+        </div>
+      </Section>
+
+      <Section id="map-view" title="🗺️ Map View">
+        <div className="space-y-4">
+          <h4 className="font-semibold text-gray-800">Interactive Map Features</h4>
+          <p className="text-gray-700">
+            The map view provides a visual representation of your environmental plans with the following features:
+          </p>
+          
+          <h4 className="font-semibold text-gray-800">Map Controls</h4>
+          <ul className="list-disc list-inside space-y-1 text-gray-700">
+            <li><strong>Zoom:</strong> Use mouse wheel or +/- buttons to zoom in/out</li>
+            <li><strong>Pan:</strong> Click and drag to move around the map</li>
+            <li><strong>Reset View:</strong> Click the refresh button to return to default view</li>
+            <li><strong>Geocoder:</strong> Search for specific locations using the search box</li>
+          </ul>
+
+          <h4 className="font-semibold text-gray-800">Plan Markers</h4>
+          <ul className="list-disc list-inside space-y-1 text-gray-700">
+            <li>Each plan is represented by a colored marker matching its type</li>
+            <li>Click on markers to view plan details in a popup</li>
+            <li>Markers are clustered when zoomed out for better performance</li>
+            <li>Plan boundaries are drawn as colored polygons when available</li>
+          </ul>
+
+          <h4 className="font-semibold text-gray-800">Map Layers</h4>
+          <p className="text-gray-700">
+            The map uses OpenStreetMap tiles by default and includes:
+          </p>
+          <ul className="list-disc list-inside space-y-1 text-gray-700">
+            <li>Satellite/street view base layer</li>
+            <li>Plan boundary overlays</li>
+            <li>Marker clustering for performance</li>
+            <li>Interactive popups with plan information</li>
+          </ul>
+        </div>
+      </Section>
+
+      <Section id="filtering" title="🔍 Filtering & Search">
+        <div className="space-y-4">
+          <h4 className="font-semibold text-gray-800">Available Filters</h4>
+          <p className="text-gray-700">
+            Use the filter section to narrow down your plans based on various criteria:
+          </p>
+          
+          <ul className="list-disc list-inside space-y-1 text-gray-700">
+            <li><strong>Plan Name:</strong> Search by plan name or partial text</li>
+            <li><strong>Plan Type:</strong> Filter by scheme type (BPS, CS, ELS, etc.)</li>
+            <li><strong>Date Range:</strong> Filter by creation or modification date</li>
+            <li><strong>Contract Status:</strong> Show only plans with or without contracts</li>
+          </ul>
+
+          <h4 className="font-semibold text-gray-800">Using Filters</h4>
+          <ol className="list-decimal list-inside space-y-2 text-gray-700">
+            <li>Expand the "Filters" section by clicking on it</li>
+            <li>Set your desired filter criteria</li>
+            <li>Filters are applied automatically as you type/select</li>
+            <li>Use "Clear All Filters" to reset all filters at once</li>
+          </ol>
+
+          <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
+            <p className="text-sm text-green-800">
+              <strong>✅ Pro Tip:</strong> Filters work in both Table and Map views, and your filter settings are remembered between sessions.
+            </p>
+          </div>
+        </div>
+      </Section>
+
+      <Section id="contracts" title="📋 Contract Management">
+        <div className="space-y-4">
+          <h4 className="font-semibold text-gray-800">What are Contracts?</h4>
+          <p className="text-gray-700">
+            Contracts are additional details you can associate with your environmental plans, such as:
+          </p>
+          <ul className="list-disc list-inside space-y-1 text-gray-700">
+            <li>Contract reference numbers</li>
+            <li>Payment amounts and schedules</li>
+            <li>Start and end dates</li>
+            <li>Special conditions or notes</li>
+            <li>Contact information</li>
+          </ul>
+
+          <h4 className="font-semibold text-gray-800">Managing Contracts</h4>
+          <ol className="list-decimal list-inside space-y-2 text-gray-700">
+            <li>Click "Manage Contract" next to any plan in the table view</li>
+            <li>Fill in the contract details in the modal form</li>
+            <li>Click "Save Contract" to store the information</li>
+            <li>Contracts are linked to your user account and saved persistently</li>
+          </ol>
+
+          <h4 className="font-semibold text-gray-800">Contract Fields</h4>
+          <ul className="list-disc list-inside space-y-1 text-gray-700">
+            <li><strong>Contract Reference:</strong> Unique identifier for the contract</li>
+            <li><strong>Payment Amount:</strong> Financial value of the contract</li>
+            <li><strong>Start Date:</strong> When the contract becomes active</li>
+            <li><strong>End Date:</strong> Contract expiration date</li>
+            <li><strong>Notes:</strong> Additional information or special conditions</li>
+          </ul>
+        </div>
+      </Section>
+
+      <Section id="data-export" title="📤 Data Export">
+        <div className="space-y-4">
+          <h4 className="font-semibold text-gray-800">Exporting Plan Data</h4>
+          <p className="text-gray-700">
+            You can export your environmental plan data in various formats:
+          </p>
+
+          <h4 className="font-semibold text-gray-800">GeoJSON Export</h4>
+          <ol className="list-decimal list-inside space-y-2 text-gray-700">
+            <li>Click "View Details" for any plan</li>
+            <li>In the details modal, click "Download GeoJSON"</li>
+            <li>The file will download with all geographic boundary data</li>
+            <li>Use this data in GIS software or other mapping applications</li>
+          </ol>
+
+          <h4 className="font-semibold text-gray-800">What's Included in Exports</h4>
+          <ul className="list-disc list-inside space-y-1 text-gray-700">
+            <li>Plan boundaries and geographic coordinates</li>
+            <li>Plan metadata (name, type, dates)</li>
+            <li>Feature properties and attributes</li>
+            <li>Coordinate reference system information</li>
+          </ul>
+
+          <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
+            <p className="text-sm text-yellow-800">
+              <strong>⚠️ Note:</strong> Contract data is stored separately and is not included in GeoJSON exports for privacy reasons.
+            </p>
+          </div>
+        </div>
+      </Section>
+
+      <Section id="troubleshooting" title="🔧 Troubleshooting">
+        <div className="space-y-4">
+          <h4 className="font-semibold text-gray-800">Common Issues</h4>
+          
+          <div className="space-y-4">
+            <div className="border-l-4 border-red-400 pl-4">
+              <h5 className="font-medium text-gray-800">API Connection Failed</h5>
+              <ul className="list-disc list-inside text-sm text-gray-600 mt-1">
+                <li>Check your API key is correct and has not expired</li>
+                <li>Ensure you have internet connectivity</li>
+                <li>Try refreshing the page and re-entering your API key</li>
+              </ul>
+            </div>
+
+            <div className="border-l-4 border-yellow-400 pl-4">
+              <h5 className="font-medium text-gray-800">Map Not Loading</h5>
+              <ul className="list-disc list-inside text-sm text-gray-600 mt-1">
+                <li>Check your internet connection</li>
+                <li>Try refreshing the page</li>
+                <li>Disable browser extensions that might block map tiles</li>
+                <li>Clear your browser cache and cookies</li>
+              </ul>
+            </div>
+
+            <div className="border-l-4 border-blue-400 pl-4">
+              <h5 className="font-medium text-gray-800">Plans Not Displaying</h5>
+              <ul className="list-disc list-inside text-sm text-gray-600 mt-1">
+                <li>Ensure you've clicked "Load Plans" after entering your API key</li>
+                <li>Check that your filters aren't hiding all plans</li>
+                <li>Verify your API key has access to plan data</li>
+              </ul>
+            </div>
+
+            <div className="border-l-4 border-green-400 pl-4">
+              <h5 className="font-medium text-gray-800">Contracts Not Saving</h5>
+              <ul className="list-disc list-inside text-sm text-gray-600 mt-1">
+                <li>Check you're in the correct database mode</li>
+                <li>Ensure all required fields are filled</li>
+                <li>Try refreshing and logging in again</li>
+              </ul>
+            </div>
+          </div>
+
+          <h4 className="font-semibold text-gray-800">Performance Tips</h4>
+          <ul className="list-disc list-inside space-y-1 text-gray-700">
+            <li>Use filters to reduce the number of plans displayed</li>
+            <li>Close detail modals when not needed</li>
+            <li>Regularly clear your browser cache</li>
+            <li>Use the latest version of your browser</li>
+          </ul>
+        </div>
+      </Section>
+
+      <Section id="technical-info" title="⚙️ Technical Information">
+        <div className="space-y-4">
+          <h4 className="font-semibold text-gray-800">System Requirements</h4>
+          <ul className="list-disc list-inside space-y-1 text-gray-700">
+            <li><strong>Browser:</strong> Modern browsers (Chrome 90+, Firefox 88+, Safari 14+, Edge 90+)</li>
+            <li><strong>JavaScript:</strong> Must be enabled</li>
+            <li><strong>Internet:</strong> Required for API access and map tiles</li>
+            <li><strong>Storage:</strong> ~5MB browser storage for caching</li>
+          </ul>
+
+          <h4 className="font-semibold text-gray-800">Supported Data Formats</h4>
+          <ul className="list-disc list-inside space-y-1 text-gray-700">
+            <li><strong>Input:</strong> Land App API JSON format</li>
+            <li><strong>Export:</strong> GeoJSON (RFC 7946 compliant)</li>
+            <li><strong>Coordinates:</strong> British National Grid (EPSG:27700) converted to WGS84 (EPSG:4326)</li>
+          </ul>
+
+          <h4 className="font-semibold text-gray-800">Privacy & Security</h4>
+          <ul className="list-disc list-inside space-y-1 text-gray-700">
+            <li>API keys are stored locally in your browser only</li>
+            <li>No personal data is transmitted to third parties</li>
+            <li>Map tiles are loaded from OpenStreetMap</li>
+            <li>Contract data is encrypted and stored securely</li>
+          </ul>
+
+          <h4 className="font-semibold text-gray-800">Version Information</h4>
+          <div className="bg-gray-50 p-3 rounded text-sm font-mono">
+            <p>Application: Land App API Analysis Tool v1.0.0</p>
+            <p>Framework: React 18.2.0</p>
+            <p>Maps: Leaflet 1.9.4</p>
+            <p>Database: Supabase 2.52.1</p>
+          </div>
+        </div>
+      </Section>
+
+          <div className="mt-8 p-6 bg-indigo-50 border border-indigo-200 rounded-lg text-center">
+            <h3 className="text-lg font-semibold text-indigo-900 mb-2">Need More Help?</h3>
+            <p className="text-indigo-700">
+              If you're still having issues or need additional assistance, please contact your system administrator 
+              or refer to the Land App API documentation for more technical details.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Main App component
 const App = () => {
   // State for Land App API interaction
@@ -1275,6 +1710,7 @@ const App = () => {
   const [showContractModal, setShowContractModal] = useState(false);
   const [selectedPlanForContract, setSelectedPlanForContract] = useState(null);
   const [showFeaturesModal, setShowFeaturesModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
   const [selectedPlanForFeatures, setSelectedPlanForFeatures] = useState(null);
   const [selectedPlanFeatures, setSelectedPlanFeatures] = useState(null);
   const [featuresLoading, setFeaturesLoading] = useState(false);
@@ -1725,16 +2161,30 @@ const App = () => {
         </p>
 
         <div className="flex justify-between items-center mb-4">
-          {user && (
-            <p className="text-sm text-gray-500">
-              User: <span className="font-mono bg-gray-200 px-2 py-1 rounded text-xs">{user.email || user.id}</span>
-            </p>
-          )}
-          <div className="flex items-center space-x-2">
-            <div className={`w-3 h-3 rounded-full ${databaseMode === 'supabase' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
-            <span className="text-sm text-gray-600">
-              {databaseMode === 'supabase' ? 'Supabase Connected' : 'Local Storage Mode'}
-            </span>
+          <div>
+            {user && (
+              <p className="text-sm text-gray-500">
+                User: <span className="font-mono bg-gray-200 px-2 py-1 rounded text-xs">{user.email || user.id}</span>
+              </p>
+            )}
+          </div>
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setShowHelpModal(true)}
+              className="flex items-center space-x-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors duration-200 text-sm font-medium"
+              title="Open Help Guide"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Help Guide</span>
+            </button>
+            <div className="flex items-center space-x-2">
+              <div className={`w-3 h-3 rounded-full ${databaseMode === 'supabase' ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+              <span className="text-sm text-gray-600">
+                {databaseMode === 'supabase' ? 'Supabase Connected' : 'Local Storage Mode'}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -2447,6 +2897,12 @@ const App = () => {
           loading={loading}
         />
       )}
+
+      {/* Help Guide Modal */}
+      <HelpGuideModal
+        isOpen={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+      />
 
       {/* Enhanced Features Display Modal */}
       {showFeaturesModal && selectedPlanForFeatures && (
