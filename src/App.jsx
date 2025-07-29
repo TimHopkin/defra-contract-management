@@ -2296,7 +2296,7 @@ const App = () => {
                     { value: 'SFI2024', label: 'Sustainable Farm Incentive 24' },
                     { value: 'VALUATION_PLAN', label: 'Valuation Plan' },
                     { value: 'WCT', label: 'Woodland Creation Template' }
-                  ].map(planType => (
+                  ].sort((a, b) => a.label.localeCompare(b.label)).map(planType => (
                     <label key={planType.value} className="flex items-start space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded text-sm">
                       <input
                         type="checkbox"
