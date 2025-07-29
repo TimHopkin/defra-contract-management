@@ -923,11 +923,7 @@ const MultiPlanMapDisplay = ({ plans, onPlanClick, onViewFeatures, apiKey, loadi
                   <div><strong>Created:</strong> ${new Date(plan.createdAt).toLocaleDateString()}</div>
                   <div><strong>Updated:</strong> ${new Date(plan.updatedAt).toLocaleDateString()}</div>
                 </div>
-                <div class="mt-2 flex flex-col sm:flex-row gap-1 sm:gap-2">
-                  <button onclick="window.handlePlanMapClick('${plan.id}')" 
-                    class="px-3 py-2 bg-indigo-600 text-white text-xs rounded hover:bg-indigo-700 transition-colors">
-                    View Details
-                  </button>
+                <div class="mt-2">
                   <button onclick="window.handleViewPlanFeatures('${plan.id}')" 
                     class="px-3 py-2 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors">
                     View Features
@@ -1027,13 +1023,6 @@ const MultiPlanMapDisplay = ({ plans, onPlanClick, onViewFeatures, apiKey, loadi
 
   // Set up global handlers for popup buttons
   useEffect(() => {
-    window.handlePlanMapClick = (planId) => {
-      const plan = plans.find(p => p.id === planId);
-      if (plan && onPlanClick) {
-        onPlanClick(plan);
-      }
-    };
-
     window.handleViewPlanFeatures = (planId) => {
       const plan = plans.find(p => p.id === planId);
       if (plan && onViewFeatures) {
@@ -1042,13 +1031,102 @@ const MultiPlanMapDisplay = ({ plans, onPlanClick, onViewFeatures, apiKey, loadi
     };
 
     return () => {
-      delete window.handlePlanMapClick;
       delete window.handleViewPlanFeatures;
     };
-  }, [plans, onPlanClick, onViewFeatures]);
+  }, [plans, onViewFeatures]);
+
+  // Create refresh function for the map
+  const refreshMapFeatures = async () => {
+    if (plans.length === 0 || !apiKey) {
+      return;
+    }
+
+    console.log('Refreshing map features...');
+    setLoadingFeatures(true);
+    const newPlanFeatures = {};
+    let totalFeatures = 0;
+    let successfulPlans = 0;
+    let failedPlans = 0;
+    
+    try {
+      // Load features for each plan (limit to avoid API overload - more plans for better map experience)
+      const maxPlansToLoad = 50;
+      const plansToLoad = plans.slice(0, maxPlansToLoad);
+      console.log(`Refreshing features for ${plansToLoad.length} plans (limited from ${plans.length})`);
+      
+      const planPromises = plansToLoad.map(async (plan) => {
+        try {
+          const url = `https://integration-api.thelandapp.com/projects/${plan.id}/features?apiKey=${apiKey}&page=0&size=1000`;
+          console.log(`Refreshing features for plan ${plan.id} (${plan.name}):`, url);
+          
+          const response = await fetch(url);
+          if (response.ok) {
+            const data = await response.json();
+            console.log(`Plan ${plan.id} API response:`, {
+              hasData: !!data.data,
+              featuresCount: data.data ? data.data.length : 0,
+              planName: plan.name
+            });
+            
+            if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+              newPlanFeatures[plan.id] = {
+                plan: plan,
+                features: data.data
+              };
+              totalFeatures += data.data.length;
+              successfulPlans++;
+              console.log(`✅ Plan ${plan.id}: Loaded ${data.data.length} features`);
+            } else {
+              console.log(`⚠️ Plan ${plan.id}: No features in response`);
+            }
+          } else {
+            console.error(`Failed to fetch features for plan ${plan.id}:`, response.status, response.statusText);
+            failedPlans++;
+          }
+        } catch (error) {
+          console.error(`Error fetching features for plan ${plan.id}:`, error);
+          failedPlans++;
+        }
+      });
+      
+      await Promise.all(planPromises);
+      
+      console.log('Map features refresh summary:', {
+        totalPlans: plansToLoad.length,
+        successfulPlans,
+        failedPlans,
+        totalFeatures,
+        plansWithFeatures: Object.keys(newPlanFeatures).length
+      });
+      
+      setPlanFeatures(newPlanFeatures);
+    } catch (error) {
+      console.error('Error refreshing map features:', error);
+    } finally {
+      setLoadingFeatures(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
+      {/* Map Header with Refresh Button */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-gray-600">
+          {Object.keys(planFeatures).length > 0 && (
+            <>Showing {Object.keys(planFeatures).length} plans with geographic features</>
+          )}
+        </div>
+        <button
+          onClick={refreshMapFeatures}
+          className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out transform hover:scale-105 flex items-center space-x-2"
+          disabled={loadingFeatures || plans.length === 0}
+          title="Refresh map data with latest features from Land App"
+        >
+          <span>🔄</span>
+          <span className="text-sm">{loadingFeatures ? 'Refreshing...' : 'Refresh Map'}</span>
+        </button>
+      </div>
+
       {loadingFeatures && (
         <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-2 rounded-md text-sm">
           Loading map features for {Math.min(plans.length, 50)} of {plans.length} plans...
@@ -1143,7 +1221,9 @@ const ViewToggle = ({ currentView, onViewChange }) => {
 // Main App component
 const App = () => {
   // State for Land App API interaction
-  const [landAppApiKey, setLandAppApiKey] = useState('');
+  const [landAppApiKey, setLandAppApiKey] = useState(() => {
+    return localStorage.getItem('defra-app-land-api-key') || '';
+  });
   const [plans, setPlans] = useState([]);
   const [filteredPlans, setFilteredPlans] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1259,6 +1339,11 @@ const App = () => {
   useEffect(() => {
     localStorage.setItem('defra-app-view', currentView);
   }, [currentView]);
+
+  // Save Land App API key to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('defra-app-land-api-key', landAppApiKey);
+  }, [landAppApiKey]);
 
   // Apply client-side filters whenever filters change (but not when plans are empty)
   useEffect(() => {
@@ -2162,13 +2247,26 @@ const App = () => {
           )}
         </div>
 
-        <button
-          onClick={fetchPlans}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-          disabled={loading || !isAuthReady}
-        >
-          {loading ? 'Fetching Plans...' : 'Fetch Plans from Land App'}
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={fetchPlans}
+            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+            disabled={loading || !isAuthReady}
+          >
+            {loading ? 'Fetching Plans...' : 'Fetch Plans from Land App'}
+          </button>
+          
+          {plans.length > 0 && (
+            <button
+              onClick={fetchPlans}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+              disabled={loading || !isAuthReady}
+              title="Refresh plans with latest data from Land App"
+            >
+              🔄
+            </button>
+          )}
+        </div>
 
         {!isAuthReady && (
           <div className="mt-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded-md text-sm" role="status">
@@ -2352,9 +2450,20 @@ const App = () => {
 
       {/* Enhanced Features Display Modal */}
       {showFeaturesModal && selectedPlanForFeatures && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex items-center justify-center p-4 z-[9999]">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-indigo-700 mb-6">Plan Details & Features: {selectedPlanForFeatures.name}</h2>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-indigo-700">Plan Details & Features: {selectedPlanForFeatures.name}</h2>
+              <button
+                onClick={() => handleViewFeatures(selectedPlanForFeatures)}
+                className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out transform hover:scale-105 flex items-center space-x-2"
+                disabled={featuresLoading}
+                title="Refresh features with latest data from Land App"
+              >
+                <span>🔄</span>
+                <span className="text-sm">{featuresLoading ? 'Refreshing...' : 'Refresh'}</span>
+              </button>
+            </div>
             
             {featuresError && (
               <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md text-sm" role="alert">
@@ -2466,6 +2575,39 @@ const App = () => {
                         {selectedPlanFeatures ? selectedPlanFeatures.length : 'Loading...'}
                       </p>
                     </div>
+                    
+                    {/* Map Name */}
+                    {selectedPlanForFeatures.mapName && (
+                      <div className="flex flex-col">
+                        <label className="text-xs font-medium text-gray-500 uppercase mb-1">Map Name</label>
+                        <p className="text-sm font-medium text-gray-900">{selectedPlanForFeatures.mapName}</p>
+                      </div>
+                    )}
+                    
+                    {/* Map ID */}
+                    {selectedPlanForFeatures.map && (
+                      <div className="flex flex-col">
+                        <label className="text-xs font-medium text-gray-500 uppercase mb-1">Map ID</label>
+                        <div className="flex items-center space-x-2">
+                          <a 
+                            href={`https://go.thelandapp.com/map/${selectedPlanForFeatures.map}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-mono text-blue-600 hover:text-blue-800 hover:underline transition-colors duration-200"
+                            title="Open in Land App"
+                          >
+                            {selectedPlanForFeatures.map}
+                          </a>
+                          <button
+                            onClick={() => navigator.clipboard.writeText(selectedPlanForFeatures.map)}
+                            className="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 text-gray-600 rounded transition-colors duration-200"
+                            title="Copy Map ID"
+                          >
+                            📋
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
