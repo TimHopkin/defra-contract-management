@@ -5,6 +5,7 @@ import geometryService from '../lib/geometryService';
 const LandAnalysisDialog = ({ 
   isOpen, 
   onClose, 
+  onBack,
   mapName, 
   selectedPlans,
   allPlans,
@@ -107,9 +108,23 @@ const LandAnalysisDialog = ({
         {/* Header */}
         <div className="bg-gradient-to-r from-green-600 to-blue-600 text-white p-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold">Land Analysis Report</h2>
-              <p className="text-green-100 mt-1">{mapName}</p>
+            <div className="flex items-center space-x-4">
+              {onBack && (
+                <button
+                  onClick={onBack}
+                  className="text-white hover:text-gray-300 transition-colors duration-200 flex items-center space-x-2"
+                  title="Back to map plans"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  <span className="text-sm font-medium">Back to Plans</span>
+                </button>
+              )}
+              <div>
+                <h2 className="text-2xl font-bold">Land Analysis Report</h2>
+                <p className="text-green-100 mt-1">{mapName}</p>
+              </div>
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-right">
@@ -702,6 +717,17 @@ const LandAnalysisDialog = ({
             {analysisData && `Generated ${new Date(analysisData.valuationDetails.lastUpdated).toLocaleString()}`}
           </div>
           <div className="flex space-x-3">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center space-x-2"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                <span>Back to Plans</span>
+              </button>
+            )}
             <button
               onClick={() => {
                 // TODO: Implement export functionality

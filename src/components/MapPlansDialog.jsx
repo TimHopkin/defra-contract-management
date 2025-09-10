@@ -7,7 +7,8 @@ const MapPlansDialog = ({
   allPlans,
   onPlanToggle,
   selectedPlans = [],
-  onLandAnalysis
+  onLandAnalysis,
+  onPlanClick
 }) => {
   const [localSelectedPlans, setLocalSelectedPlans] = useState(selectedPlans);
 
@@ -155,7 +156,11 @@ const MapPlansDialog = ({
                     </label>
                   </div>
 
-                  <div className="flex-grow">
+                  <div 
+                    className="flex-grow cursor-pointer hover:bg-gray-50 rounded p-2 -m-2 transition-colors duration-200"
+                    onClick={() => onPlanClick && onPlanClick(plan)}
+                    title="Click to view plan details and features"
+                  >
                     <div className="flex items-center space-x-3 mb-2">
                       <h3 className="text-lg font-semibold text-gray-900">{plan.name}</h3>
                       <span 
