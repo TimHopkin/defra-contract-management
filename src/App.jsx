@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
+import EnergyDashboard from './components/EnergyPerformance/EnergyDashboard';
+import EnergyMap from './components/EnergyPerformance/EnergyMap';
+import EnergyTable from './components/EnergyPerformance/EnergyTable';
+import BuildingDetail from './components/EnergyPerformance/BuildingDetail';
+import ExportControls from './components/EnergyPerformance/ExportControls';
+import epcService from './lib/epcService';
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component {
@@ -1190,7 +1196,7 @@ const ViewToggle = ({ currentView, onViewChange }) => {
     <div className="flex items-center justify-center bg-gray-100 rounded-lg p-1 shadow-sm">
       <button
         onClick={() => onViewChange('table')}
-        className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+        className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-md font-medium transition-all duration-200 ${
           currentView === 'table'
             ? 'bg-white text-indigo-700 shadow-sm'
             : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
@@ -1199,11 +1205,11 @@ const ViewToggle = ({ currentView, onViewChange }) => {
         <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 6h18m-9 8h9m-9 4h9m-9-8h9m-9 4h9" />
         </svg>
-        <span className="text-sm sm:text-base">Table</span>
+        <span className="text-xs sm:text-sm">Table</span>
       </button>
       <button
         onClick={() => onViewChange('map')}
-        className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+        className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-md font-medium transition-all duration-200 ${
           currentView === 'map'
             ? 'bg-white text-indigo-700 shadow-sm'
             : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
@@ -1212,7 +1218,7 @@ const ViewToggle = ({ currentView, onViewChange }) => {
         <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
         </svg>
-        <span className="text-sm sm:text-base">Map</span>
+        <span className="text-xs sm:text-sm">Map</span>
       </button>
     </div>
   );
@@ -1295,7 +1301,7 @@ const HelpGuideModal = ({ isOpen, onClose }) => {
               Land App API Analysis Tool - Help Guide
             </h1>
             <p className="text-sm text-gray-600 mt-1">
-              Complete guide to using the Defra Environmental Contract Management Platform
+              Complete guide to using the Land App API Tool
             </p>
           </div>
           <button
@@ -1657,7 +1663,7 @@ const HelpGuideModal = ({ isOpen, onClose }) => {
 const App = () => {
   // State for Land App API interaction
   const [landAppApiKey, setLandAppApiKey] = useState(() => {
-    return localStorage.getItem('defra-app-land-api-key') || '';
+    return localStorage.getItem('landapp-api-key') || '';
   });
   const [plans, setPlans] = useState([]);
   const [filteredPlans, setFilteredPlans] = useState([]);
@@ -1666,7 +1672,7 @@ const App = () => {
 
   // Filter state management with persistence
   const [filters, setFilters] = useState(() => {
-    const savedFilters = localStorage.getItem('defra-app-filters');
+    const savedFilters = localStorage.getItem('landapp-filters');
     if (savedFilters) {
       try {
         return JSON.parse(savedFilters);
@@ -1702,7 +1708,7 @@ const App = () => {
 
   // State for View Toggle
   const [currentView, setCurrentView] = useState(() => {
-    const savedView = localStorage.getItem('defra-app-view');
+    const savedView = localStorage.getItem('landapp-view');
     return savedView || 'table';
   });
 
@@ -1718,6 +1724,17 @@ const App = () => {
   const [showGeoJsonData, setShowGeoJsonData] = useState(false);
   const [showPlanDetails, setShowPlanDetails] = useState(true);
 
+  // State for EPC functionality in features dialog
+  const [featuresEpcData, setFeaturesEpcData] = useState(null);
+  const [featuresEpcSummary, setFeaturesEpcSummary] = useState(null);
+  const [featuresEpcLoading, setFeaturesEpcLoading] = useState(false);
+  const [featuresEpcError, setFeaturesEpcError] = useState(null);
+  const [selectedBuilding, setSelectedBuilding] = useState(null);
+  const [showBuildingDetail, setShowBuildingDetail] = useState(false);
+  const [featuresEpcView, setFeaturesEpcView] = useState('dashboard'); // dashboard, map, table
+  const [showEpcAnalysis, setShowEpcAnalysis] = useState(false);
+
+
   // --- Supabase Initialization and Authentication ---
   useEffect(() => {
     if (!isSupabaseConfigured()) {
@@ -1727,7 +1744,7 @@ const App = () => {
       setIsAuthReady(true);
       
       // Load contracts from localStorage
-      const savedContracts = localStorage.getItem('defra-contracts');
+      const savedContracts = localStorage.getItem('landapp-contracts');
       if (savedContracts) {
         try {
           setContracts(JSON.parse(savedContracts));
@@ -1768,17 +1785,17 @@ const App = () => {
 
   // Save filters to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem('defra-app-filters', JSON.stringify(filters));
+    localStorage.setItem('landapp-filters', JSON.stringify(filters));
   }, [filters]);
 
   // Save view preference to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('defra-app-view', currentView);
+    localStorage.setItem('landapp-view', currentView);
   }, [currentView]);
 
   // Save Land App API key to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('defra-app-land-api-key', landAppApiKey);
+    localStorage.setItem('landapp-api-key', landAppApiKey);
   }, [landAppApiKey]);
 
   // Apply client-side filters whenever filters change (but not when plans are empty)
@@ -2102,7 +2119,7 @@ const App = () => {
           }
         };
         setContracts(updatedContracts);
-        localStorage.setItem('defra-contracts', JSON.stringify(updatedContracts));
+        localStorage.setItem('landapp-contracts', JSON.stringify(updatedContracts));
       }
 
       setShowContractModal(false);
@@ -2147,6 +2164,69 @@ const App = () => {
     } finally {
       setFeaturesLoading(false);
     }
+  };
+
+  // EPC Analysis functions for features dialog
+  const handleFeaturesEpcAnalysis = async () => {
+    if (!selectedPlanFeatures || selectedPlanFeatures.length === 0) {
+      setFeaturesEpcError("No features available for EPC analysis. Please load plan features first.");
+      return;
+    }
+
+    setFeaturesEpcLoading(true);
+    setFeaturesEpcError(null);
+    setFeaturesEpcData(null);
+    setFeaturesEpcSummary(null);
+    setShowEpcAnalysis(true);
+
+    try {
+      // Filter for building features from selected plan
+      const buildings = selectedPlanFeatures.filter(feature => 
+        feature.geometry && 
+        (feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon') &&
+        feature.properties
+      );
+
+      if (buildings.length === 0) {
+        throw new Error("No building features found in this OSMasterMap plan.");
+      }
+
+      console.log(`Processing EPC data for ${buildings.length} buildings from ${selectedPlanForFeatures.name}...`);
+
+      // Process EPC data for this specific plan's buildings
+      const result = await epcService.processEstateEPC(buildings, (progress) => {
+        // Update progress in real-time
+        setFeaturesEpcData(prev => ({ ...prev, progress }));
+      });
+
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      setFeaturesEpcData(result);
+      setFeaturesEpcSummary(result.summary);
+      
+      console.log("Features EPC processing completed:", result);
+    } catch (err) {
+      console.error("Features EPC processing error:", err);
+      setFeaturesEpcError(err.message);
+    } finally {
+      setFeaturesEpcLoading(false);
+    }
+  };
+
+  const handleFeaturesEpcRefresh = () => {
+    epcService.clearCache();
+    handleFeaturesEpcAnalysis();
+  };
+
+  const handleBuildingClick = (match, index) => {
+    setSelectedBuilding(match);
+    setShowBuildingDetail(true);
+  };
+
+  const handleFeaturesEpcViewChange = (subView) => {
+    setFeaturesEpcView(subView);
   };
 
   return (
@@ -2684,7 +2764,7 @@ const App = () => {
                           sortOrder: 'desc'
                         };
                         setFilters(defaultFilters);
-                        localStorage.setItem('defra-app-filters', JSON.stringify(defaultFilters));
+                        localStorage.setItem('landapp-filters', JSON.stringify(defaultFilters));
                       }}
                       className="inline-flex items-center px-3 py-1 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-md transition-colors duration-200"
                     >
@@ -2910,15 +2990,40 @@ const App = () => {
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-indigo-700">Plan Details & Features: {selectedPlanForFeatures.name}</h2>
-              <button
-                onClick={() => handleViewFeatures(selectedPlanForFeatures)}
-                className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out transform hover:scale-105 flex items-center space-x-2"
-                disabled={featuresLoading}
-                title="Refresh features with latest data from Land App"
-              >
-                <span>🔄</span>
-                <span className="text-sm">{featuresLoading ? 'Refreshing...' : 'Refresh'}</span>
-              </button>
+              <div className="flex items-center space-x-3">
+                {/* EPC Analysis Button - Only show for OSMM plans */}
+                {selectedPlanForFeatures.planType === 'OSMM' && (
+                  <button
+                    onClick={handleFeaturesEpcAnalysis}
+                    disabled={featuresEpcLoading || !selectedPlanFeatures?.length}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out transform hover:scale-105 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Analyze EPC data for buildings in this OSMasterMap plan"
+                  >
+                    {featuresEpcLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span className="text-sm">Analyzing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <span className="text-sm">EPC Analysis</span>
+                      </>
+                    )}
+                  </button>
+                )}
+                <button
+                  onClick={() => handleViewFeatures(selectedPlanForFeatures)}
+                  className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md shadow-md transition duration-300 ease-in-out transform hover:scale-105 flex items-center space-x-2"
+                  disabled={featuresLoading}
+                  title="Refresh features with latest data from Land App"
+                >
+                  <span>🔄</span>
+                  <span className="text-sm">{featuresLoading ? 'Refreshing...' : 'Refresh'}</span>
+                </button>
+              </div>
             </div>
             
             {featuresError && (
@@ -3069,6 +3174,181 @@ const App = () => {
               )}
             </div>
 
+            {/* EPC Analysis Section - Only for OSMM plans */}
+            {selectedPlanForFeatures.planType === 'OSMM' && showEpcAnalysis && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg">⚡</span>
+                    <h3 className="text-lg font-semibold text-gray-800">Energy Performance Analysis</h3>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowEpcAnalysis(false);
+                      setFeaturesEpcData(null);
+                      setFeaturesEpcSummary(null);
+                      setFeaturesEpcError(null);
+                      setSelectedBuilding(null);
+                    }}
+                    className="flex items-center space-x-1 px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-md transition-colors duration-200"
+                    title="Close EPC Analysis and return to features view"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <span>Close</span>
+                  </button>
+                </div>
+
+                {/* Info message when no EPC data has been processed yet */}
+                {!featuresEpcData && !featuresEpcLoading && !featuresEpcError && (
+                  <div className="mb-4 p-4 bg-blue-50 border border-blue-200 text-blue-800 rounded-md text-sm">
+                    <div className="flex items-start space-x-2">
+                      <svg className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div>
+                        <h4 className="font-medium mb-2">About EPC Analysis</h4>
+                        <p className="mb-2">This feature attempts to match building shapes from OSMasterMap to Energy Performance Certificate (EPC) data from the UK government database.</p>
+                        <p className="text-xs">Click the "EPC Analysis" button above to analyze the buildings in this plan.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* EPC Error */}
+                {featuresEpcError && (
+                  <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-md text-sm" role="alert">
+                    <div className="flex items-start space-x-2">
+                      <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <div>
+                        <h4 className="font-medium mb-2">EPC Data Limitation</h4>
+                        <p className="mb-3">{featuresEpcError}</p>
+                        <div className="text-xs bg-yellow-100 p-3 rounded border border-yellow-200">
+                          <p className="font-medium mb-2">Why does this happen?</p>
+                          <ul className="list-disc list-inside space-y-1">
+                            <li>OSMasterMap provides building shapes but not address data</li>
+                            <li>EPC lookups require UPRN (property identifier), postcode, or full address</li>
+                            <li>To get EPC data, you would need to use a data source that includes property identifiers</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* EPC Sub-view Toggle */}
+                {(featuresEpcData || featuresEpcLoading) && (
+                  <div className="bg-white p-4 rounded-lg shadow-sm mb-4">
+                    <div className="flex items-center justify-center bg-gray-100 rounded-lg p-1 shadow-sm w-fit mx-auto">
+                      <button
+                        onClick={() => handleFeaturesEpcViewChange('dashboard')}
+                        className={`flex items-center space-x-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+                          featuresEpcView === 'dashboard'
+                            ? 'bg-white text-indigo-700 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        <span>Dashboard</span>
+                      </button>
+                      <button
+                        onClick={() => handleFeaturesEpcViewChange('map')}
+                        className={`flex items-center space-x-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+                          featuresEpcView === 'map'
+                            ? 'bg-white text-indigo-700 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                        </svg>
+                        <span>Map View</span>
+                      </button>
+                      <button
+                        onClick={() => handleFeaturesEpcViewChange('table')}
+                        className={`flex items-center space-x-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+                          featuresEpcView === 'table'
+                            ? 'bg-white text-indigo-700 shadow-sm'
+                            : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                        }`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 6h18m-9 8h9m-9 4h9m-9-8h9m-9 4h9" />
+                        </svg>
+                        <span>Table</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* EPC Content Views */}
+                {featuresEpcView === 'dashboard' ? (
+                  <EnergyDashboard
+                    epcData={featuresEpcData}
+                    summary={featuresEpcSummary}
+                    loading={featuresEpcLoading}
+                    error={featuresEpcError}
+                    onRefresh={handleFeaturesEpcRefresh}
+                  />
+                ) : featuresEpcView === 'map' ? (
+                  <div className="bg-white p-6 rounded-lg shadow-sm">
+                    <EnergyMap
+                      epcData={featuresEpcData}
+                      onBuildingClick={handleBuildingClick}
+                      selectedBuilding={selectedBuilding}
+                      loading={featuresEpcLoading}
+                    />
+                  </div>
+                ) : featuresEpcView === 'table' ? (
+                  <EnergyTable
+                    epcData={featuresEpcData}
+                    onRowClick={handleBuildingClick}
+                    selectedBuilding={selectedBuilding}
+                    loading={featuresEpcLoading}
+                  />
+                ) : null}
+
+                {/* Export Controls */}
+                {featuresEpcData && !featuresEpcLoading && (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                    <ExportControls
+                      epcData={featuresEpcData}
+                      summary={featuresEpcSummary}
+                      onExport={(format, count) => {
+                        console.log(`Exported ${count} records in ${format} format`);
+                      }}
+                    />
+                    <div className="bg-white p-6 rounded-lg shadow-sm">
+                      <h3 className="text-lg font-semibold mb-4">Quick Stats</h3>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-600">Total Buildings:</span>
+                          <span className="font-medium ml-2">{featuresEpcSummary?.totalBuildings || 0}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">With EPC:</span>
+                          <span className="font-medium ml-2">{featuresEpcSummary?.withEPC || 0}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Coverage:</span>
+                          <span className="font-medium ml-2">{featuresEpcSummary?.coveragePercent || 0}%</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Avg Efficiency:</span>
+                          <span className="font-medium ml-2">{featuresEpcSummary?.averageEfficiency || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Map Section */}
             <div className="mb-6">
               <div className="flex items-center space-x-2 mb-4">
@@ -3161,6 +3441,13 @@ const App = () => {
           </div>
         </div>
       )}
+
+      {/* Building Detail Modal */}
+      <BuildingDetail
+        match={selectedBuilding}
+        isOpen={showBuildingDetail}
+        onClose={() => setShowBuildingDetail(false)}
+      />
     </div>
   );
 };

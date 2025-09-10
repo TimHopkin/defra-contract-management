@@ -1,7 +1,7 @@
 {
-  "name": "defra-contract-management",
+  "name": "landapp-api-tool",
   "version": "1.0.0",
-  "description": "Defra Environmental Contract Management Platform POC",
+  "description": "Land App API Tool",
   "main": "index.js",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,10 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.52.1",
+    "axios": "^1.6.0",
+    "chart.js": "^4.4.0",
     "react": "^18.2.0",
+    "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {

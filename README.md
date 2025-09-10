@@ -1,6 +1,6 @@
-# Defra Environmental Contract Management Platform POC
+# Land App API Tool
 
-This is a React-based application that demonstrates how an external application can consume data from the Land App API and manage contract details for plans using Firestore, simulating a Defra-like system.
+This is a React-based application that demonstrates how an external application can consume data from the Land App API and manage contract details for plans.
 
 ## Features
 
