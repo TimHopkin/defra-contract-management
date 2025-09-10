@@ -5,6 +5,8 @@ import EnergyMap from './components/EnergyPerformance/EnergyMap';
 import EnergyTable from './components/EnergyPerformance/EnergyTable';
 import BuildingDetail from './components/EnergyPerformance/BuildingDetail';
 import ExportControls from './components/EnergyPerformance/ExportControls';
+import MapPlansDialog from './components/MapPlansDialog';
+import LandAnalysisDialog from './components/LandAnalysisDialog';
 import epcService from './lib/epcService';
 
 // Error Boundary Component
@@ -611,13 +613,12 @@ const getPlanTypeColor = (planType) => {
 };
 
 // Multi-Plan Map Display Component
-const MultiPlanMapDisplay = ({ plans, onPlanClick, onViewFeatures, apiKey, loading }) => {
+const MultiPlanMapDisplay = ({ plans, onPlanClick, onViewFeatures, apiKey, loading, planFeatures, setPlanFeatures }) => {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const layersRef = useRef([]);
   const clusterGroupRef = useRef(null);
   const baseLayers = useRef({});
-  const [planFeatures, setPlanFeatures] = useState({});
   const [loadingFeatures, setLoadingFeatures] = useState(false);
 
   useEffect(() => {
@@ -784,6 +785,29 @@ const MultiPlanMapDisplay = ({ plans, onPlanClick, onViewFeatures, apiKey, loadi
                 sampleFeature: data.data && data.data.length > 0 ? data.data[0] : null
               });
               
+              // Enhanced logging for area and feature structure
+              if (data.data && data.data.length > 0) {
+                const sampleFeature = data.data[0];
+                console.log(`🔍 Sample feature structure for plan ${plan.id}:`, {
+                  type: sampleFeature.type,
+                  geometry: sampleFeature.geometry ? {
+                    type: sampleFeature.geometry.type,
+                    coordinatesLength: sampleFeature.geometry.coordinates ? sampleFeature.geometry.coordinates.length : 0
+                  } : null,
+                  properties: sampleFeature.properties ? {
+                    keys: Object.keys(sampleFeature.properties),
+                    area: sampleFeature.properties.area,
+                    area_ha: sampleFeature.properties.area_ha,
+                    area_m2: sampleFeature.properties.area_m2,
+                    calculatedArea: sampleFeature.properties.calculatedArea,
+                    theme: sampleFeature.properties.theme,
+                    descriptiveGroup: sampleFeature.properties.descriptiveGroup,
+                    fid: sampleFeature.properties.fid
+                  } : null,
+                  fullProperties: sampleFeature.properties
+                });
+              }
+              
               if (data.data && data.data.length > 0) {
                 newPlanFeatures[plan.id] = {
                   plan: plan,
@@ -815,7 +839,10 @@ const MultiPlanMapDisplay = ({ plans, onPlanClick, onViewFeatures, apiKey, loadi
           plansWithFeatures: Object.keys(newPlanFeatures).length
         });
         
-        setPlanFeatures(newPlanFeatures);
+        setPlanFeatures(prev => ({
+          ...prev,
+          ...newPlanFeatures
+        }));
       } catch (error) {
         console.error('Error loading plan features:', error);
       } finally {
@@ -1105,7 +1132,10 @@ const MultiPlanMapDisplay = ({ plans, onPlanClick, onViewFeatures, apiKey, loadi
         plansWithFeatures: Object.keys(newPlanFeatures).length
       });
       
-      setPlanFeatures(newPlanFeatures);
+      setPlanFeatures(prev => ({
+        ...prev,
+        ...newPlanFeatures
+      }));
     } catch (error) {
       console.error('Error refreshing map features:', error);
     } finally {
@@ -1716,6 +1746,10 @@ const App = () => {
   const [showContractModal, setShowContractModal] = useState(false);
   const [selectedPlanForContract, setSelectedPlanForContract] = useState(null);
   const [showFeaturesModal, setShowFeaturesModal] = useState(false);
+  const [showMapPlansDialog, setShowMapPlansDialog] = useState(false);
+  const [selectedMapForPlans, setSelectedMapForPlans] = useState(null);
+  const [selectedMapPlans, setSelectedMapPlans] = useState([]);
+  const [showLandAnalysisDialog, setShowLandAnalysisDialog] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [selectedPlanForFeatures, setSelectedPlanForFeatures] = useState(null);
   const [selectedPlanFeatures, setSelectedPlanFeatures] = useState(null);
@@ -1734,6 +1768,8 @@ const App = () => {
   const [featuresEpcView, setFeaturesEpcView] = useState('dashboard'); // dashboard, map, table
   const [showEpcAnalysis, setShowEpcAnalysis] = useState(false);
 
+  // State for plan features (used by Land Analysis)
+  const [planFeatures, setPlanFeatures] = useState({});
 
   // --- Supabase Initialization and Authentication ---
   useEffect(() => {
@@ -2157,6 +2193,17 @@ const App = () => {
       }
       const data = await response.json();
       setSelectedPlanFeatures(data.data);
+      
+      // Also update the main planFeatures state for Land Analysis
+      setPlanFeatures(prev => ({
+        ...prev,
+        [plan.id]: {
+          features: data.data,
+          plan: plan
+        }
+      }));
+      
+      console.log(`Loaded ${data.data.length} features for plan ${plan.id} (${plan.name})`);
       setShowFeaturesModal(true);
     } catch (err) {
       console.error("Error fetching features:", err);
@@ -2164,6 +2211,27 @@ const App = () => {
     } finally {
       setFeaturesLoading(false);
     }
+  };
+
+  // --- Handle opening Map Plans Dialog ---
+  const handleMapNameClick = (mapName) => {
+    setSelectedMapForPlans(mapName);
+    setShowMapPlansDialog(true);
+  };
+
+  // --- Handle plan toggle for map display ---
+  const handlePlanToggle = (planId, updatedPlans) => {
+    setSelectedMapPlans(updatedPlans);
+    // TODO: Update map display to show/hide plan features
+  };
+
+  // --- Handle land analysis ---
+  const handleLandAnalysis = (mapName, selectedPlanIds) => {
+    console.log(`Opening Land Analysis for ${mapName} with plans:`, selectedPlanIds);
+    setSelectedMapForPlans(mapName);
+    setSelectedMapPlans(selectedPlanIds);
+    setShowMapPlansDialog(false); // Close the map plans dialog
+    setShowLandAnalysisDialog(true); // Open the land analysis dialog
   };
 
   // EPC Analysis functions for features dialog
@@ -2872,6 +2940,8 @@ const App = () => {
               }}
               onViewFeatures={handleViewFeatures}
               loading={loading}
+              planFeatures={planFeatures}
+              setPlanFeatures={setPlanFeatures}
             />
           ) : (
           <div className="overflow-x-auto">
@@ -3141,7 +3211,13 @@ const App = () => {
                     {selectedPlanForFeatures.mapName && (
                       <div className="flex flex-col">
                         <label className="text-xs font-medium text-gray-500 uppercase mb-1">Map Name</label>
-                        <p className="text-sm font-medium text-gray-900">{selectedPlanForFeatures.mapName}</p>
+                        <button 
+                          className="text-sm font-medium text-gray-900 hover:text-blue-600 hover:underline cursor-pointer text-left transition-colors duration-200"
+                          onClick={() => handleMapNameClick(selectedPlanForFeatures.mapName)}
+                          title="Click to view all plans for this map"
+                        >
+                          {selectedPlanForFeatures.mapName}
+                        </button>
                       </div>
                     )}
                     
@@ -3447,6 +3523,28 @@ const App = () => {
         match={selectedBuilding}
         isOpen={showBuildingDetail}
         onClose={() => setShowBuildingDetail(false)}
+      />
+
+      {/* Map Plans Dialog */}
+      <MapPlansDialog
+        isOpen={showMapPlansDialog}
+        onClose={() => setShowMapPlansDialog(false)}
+        mapName={selectedMapForPlans}
+        allPlans={plans}
+        onPlanToggle={handlePlanToggle}
+        selectedPlans={selectedMapPlans}
+        onLandAnalysis={handleLandAnalysis}
+      />
+
+      {/* Land Analysis Dialog */}
+      <LandAnalysisDialog
+        isOpen={showLandAnalysisDialog}
+        onClose={() => setShowLandAnalysisDialog(false)}
+        mapName={selectedMapForPlans}
+        selectedPlans={selectedMapPlans}
+        allPlans={plans}
+        planFeatures={planFeatures}
+        epcData={featuresEpcData}
       />
     </div>
   );
