@@ -8,6 +8,7 @@ import ExportControls from './components/EnergyPerformance/ExportControls';
 import MapPlansDialog from './components/MapPlansDialog';
 import LandAnalysisDialog from './components/LandAnalysisDialog';
 import MapsList from './components/MapsList';
+import MapDashboard from './components/MapDashboard';
 import NatureDashboard from './components/NatureReporting/NatureDashboard';
 import epcService from './lib/epcService';
 import osLinkedIdentifiersService from './lib/osLinkedIdentifiersService';
@@ -1815,6 +1816,7 @@ const App = () => {
   const [selectedMapPlans, setSelectedMapPlans] = useState([]);
   const [showLandAnalysisDialog, setShowLandAnalysisDialog] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showMapDashboard, setShowMapDashboard] = useState(false);
   const [selectedPlanForFeatures, setSelectedPlanForFeatures] = useState(null);
   const [selectedPlanFeatures, setSelectedPlanFeatures] = useState(null);
   const [featuresLoading, setFeaturesLoading] = useState(false);
@@ -2542,6 +2544,16 @@ const App = () => {
             )}
           </div>
           <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setShowMapDashboard(true)}
+              className="flex items-center space-x-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors duration-200 text-sm font-medium"
+              title="Open Map Dashboard - Analyze any map by ID"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
+              <span>Map Dashboard</span>
+            </button>
             <button
               onClick={() => setShowHelpModal(true)}
               className="flex items-center space-x-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md transition-colors duration-200 text-sm font-medium"
@@ -3373,6 +3385,17 @@ const App = () => {
         isOpen={showHelpModal}
         onClose={() => setShowHelpModal(false)}
       />
+
+      {/* Map Dashboard Modal */}
+      {showMapDashboard && (
+        <div className="fixed inset-0 bg-gray-900 z-[10000]">
+          <MapDashboard
+            landAppApiKey={landAppApiKey}
+            natureReportingApiKey={landAppApiKey}
+            onBack={() => setShowMapDashboard(false)}
+          />
+        </div>
+      )}
 
       {/* Enhanced Features Display Modal */}
       {showFeaturesModal && selectedPlanForFeatures && (
