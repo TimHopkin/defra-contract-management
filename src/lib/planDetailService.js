@@ -177,20 +177,28 @@ class PlanDetailService {
     }
 
     try {
-      // Use existing geometry service for consistent analysis
-      const analysis = await geometryService.analyzeFeaturesGeometry(features, plan.id);
+      // Calculate basic area from features
+      let totalArea = 0;
+      let validFeatures = 0;
+      
+      features.forEach(feature => {
+        if (feature.properties?.area && !isNaN(feature.properties.area)) {
+          totalArea += feature.properties.area;
+          validFeatures++;
+        }
+      });
       
       return {
-        totalArea: analysis.totalArea,
-        totalAreaHa: analysis.totalArea / 10000, // Convert to hectares
-        totalAreaAcres: (analysis.totalArea / 10000) * 2.47105, // Convert to acres
-        totalAreaFormatted: geometryService.formatArea(analysis.totalArea, 'hectares'),
-        featureGroups: analysis.featureGroups,
-        boundingBox: analysis.boundingBox,
+        totalArea: totalArea,
+        totalAreaHa: totalArea / 10000, // Convert to hectares
+        totalAreaAcres: (totalArea / 10000) * 2.47105, // Convert to acres
+        totalAreaFormatted: geometryService.formatArea(totalArea, 'hectares'),
+        featureGroups: this.groupFeaturesByType(features),
+        boundingBox: null, // Will be calculated if needed
         summary: {
           totalFeatures: features.length,
-          validFeatures: analysis.validFeatures,
-          areaCalculated: analysis.totalArea > 0,
+          validFeatures: validFeatures,
+          areaCalculated: totalArea > 0,
           coordinateSystem: 'WGS84'
         }
       };
@@ -217,14 +225,17 @@ class PlanDetailService {
    */
   analyzePaymentPotential(plan, geometryAnalysis) {
     const scheme = paymentRatesService.getSchemeFromPlanType(plan.planType);
-    const areaHa = geometryAnalysis.totalAreaHa;
+    const areaHa = geometryAnalysis?.totalAreaHa || 0;
     
     if (areaHa === 0 || scheme === 'UNKNOWN') {
       return {
+        areaHa: 0,
         currentPayment: { total: 0, error: 'No area or unknown scheme' },
-        potentialActions: [],
-        recommendations: [],
-        roi: null
+        potentialPayment: { total: 0, error: 'No area or unknown scheme' },
+        availableActions: [],
+        upscalePotential: 0,
+        roi: null,
+        scheme: paymentRatesService.getSchemeInfo(plan.planType)
       };
     }
 

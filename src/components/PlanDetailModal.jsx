@@ -37,7 +37,7 @@ const PlanDetailModal = ({ plan, apiKey, onClose }) => {
     { id: 'recommendations', label: 'Actions', icon: '🎯' }
   ];
 
-  if (loading) {
+  if (loading || !planDetails) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
         <div className="bg-white rounded-xl p-8 max-w-md w-full mx-4 text-center">
@@ -129,7 +129,12 @@ const PlanDetailModal = ({ plan, apiKey, onClose }) => {
               <div className="text-gray-600">Features</div>
             </div>
             <div className="text-center">
-              <div className="font-semibold text-gray-900">{paymentRatesService.formatCurrency(planDetails.financial.potentialPayment.total)}</div>
+              <div className="font-semibold text-gray-900">
+                {planDetails?.financial?.potentialPayment?.total ? 
+                  paymentRatesService.formatCurrency(planDetails.financial.potentialPayment.total) : 
+                  'N/A'
+                }
+              </div>
               <div className="text-gray-600">Potential Annual</div>
             </div>
           </div>
@@ -290,19 +295,25 @@ const FinancialTab = ({ planDetails }) => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200">
           <h3 className="text-lg font-semibold text-blue-900 mb-2">Current Estimate</h3>
-          <div className="text-3xl font-bold text-blue-700">{paymentRatesService.formatCurrency(financial.currentPayment.total)}</div>
+          <div className="text-3xl font-bold text-blue-700">
+            {paymentRatesService.formatCurrency(financial?.currentPayment?.total || 0)}
+          </div>
           <p className="text-blue-600 text-sm mt-1">Annual payment</p>
         </div>
         
         <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 border border-green-200">
           <h3 className="text-lg font-semibold text-green-900 mb-2">Potential Payment</h3>
-          <div className="text-3xl font-bold text-green-700">{paymentRatesService.formatCurrency(financial.potentialPayment.total)}</div>
+          <div className="text-3xl font-bold text-green-700">
+            {paymentRatesService.formatCurrency(financial?.potentialPayment?.total || 0)}
+          </div>
           <p className="text-green-600 text-sm mt-1">With optimization</p>
         </div>
         
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 border border-purple-200">
           <h3 className="text-lg font-semibold text-purple-900 mb-2">Upscale Potential</h3>
-          <div className="text-3xl font-bold text-purple-700">{paymentRatesService.formatCurrency(financial.upscalePotential)}</div>
+          <div className="text-3xl font-bold text-purple-700">
+            {paymentRatesService.formatCurrency(financial?.upscalePotential || 0)}
+          </div>
           <p className="text-purple-600 text-sm mt-1">Additional annual income</p>
         </div>
       </div>
@@ -338,7 +349,7 @@ const FinancialTab = ({ planDetails }) => {
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">High-Value Actions Available</h3>
         <div className="space-y-3 max-h-64 overflow-y-auto">
-          {financial.availableActions.map((action, index) => (
+          {(financial?.availableActions || []).map((action, index) => (
             <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
               <div className="flex-1">
                 <h4 className="font-medium text-gray-900">{action.name}</h4>
