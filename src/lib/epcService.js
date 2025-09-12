@@ -59,46 +59,85 @@ export const extractBuildingIdentifiers = (osmBuildings) => {
   osmBuildings.forEach(building => {
     const props = building.properties || {};
     
-    // Extract UPRN if available
-    if (props.uprn) {
+    // Extract enhanced UPRNs from OS Linked Identifiers API (highest priority)
+    if (props.primaryUPRN) {
+      identifiers.push({
+        type: 'uprn',
+        value: props.primaryUPRN,
+        building: building,
+        confidence: 1.0,
+        source: 'OS Linked Identifiers API (primary)'
+      });
+    }
+    
+    // Extract additional UPRNs from OS Linked Identifiers API
+    if (props.uprns && Array.isArray(props.uprns)) {
+      props.uprns.forEach(uprn => {
+        if (uprn && uprn !== props.primaryUPRN) {
+          identifiers.push({
+            type: 'uprn',
+            value: uprn,
+            building: building,
+            confidence: 0.95,
+            source: 'OS Linked Identifiers API (secondary)'
+          });
+        }
+      });
+    }
+    
+    // Extract original UPRN if available (fallback)
+    if (props.uprn && props.uprn !== props.primaryUPRN) {
       identifiers.push({
         type: 'uprn',
         value: props.uprn,
         building: building,
-        confidence: 1.0
+        confidence: 1.0,
+        source: 'OSMasterMap'
       });
     }
     
-    // Extract postcode
-    if (props.postcode) {
-      identifiers.push({
-        type: 'postcode',
-        value: props.postcode,
-        building: building,
-        confidence: 0.8
-      });
-    }
+    // Only use postcode/address if no UPRNs are available
+    const hasUPRN = props.primaryUPRN || props.uprn || (props.uprns && props.uprns.length > 0);
     
-    // Extract address components
-    if (props.address || props.full_address) {
-      const address = props.address || props.full_address;
-      identifiers.push({
-        type: 'address',
-        value: address,
-        building: building,
-        confidence: 0.6
-      });
+    if (!hasUPRN) {
+      // Extract postcode
+      if (props.postcode) {
+        identifiers.push({
+          type: 'postcode',
+          value: props.postcode,
+          building: building,
+          confidence: 0.8,
+          source: 'OSMasterMap'
+        });
+      }
+      
+      // Extract address components
+      if (props.address || props.full_address) {
+        const address = props.address || props.full_address;
+        identifiers.push({
+          type: 'address',
+          value: address,
+          building: building,
+          confidence: 0.6,
+          source: 'OSMasterMap'
+        });
+      }
     }
 
     // Check for alternative OSMM properties
     // OSMM data often lacks UPRN/address data but may have other identifiers
     if (props.fid && (props.theme === 'Buildings' || props.descriptivegroup === 'Building')) {
       // Log the OSMM building for debugging
-      console.log('OSMM Building found:', {
+      const hasEnhancement = props.osLinkedIdentifiers;
+      console.log(`OSMM Building found (${hasEnhancement ? 'enhanced' : 'original'}):`, {
         fid: props.fid,
         theme: props.theme,
         descriptivegroup: props.descriptivegroup,
-        allProps: props
+        primaryUPRN: props.primaryUPRN,
+        uprnCount: props.uprns?.length || 0,
+        hasOriginalUPRN: !!props.uprn,
+        hasPostcode: !!props.postcode,
+        hasAddress: !!(props.address || props.full_address)
       });
     }
   });

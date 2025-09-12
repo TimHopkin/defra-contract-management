@@ -8,7 +8,10 @@ import ExportControls from './components/EnergyPerformance/ExportControls';
 import MapPlansDialog from './components/MapPlansDialog';
 import LandAnalysisDialog from './components/LandAnalysisDialog';
 import MapsList from './components/MapsList';
+import NatureDashboard from './components/NatureReporting/NatureDashboard';
 import epcService from './lib/epcService';
+import osLinkedIdentifiersService from './lib/osLinkedIdentifiersService';
+import natureReportingService from './lib/natureReportingService';
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component {
@@ -1261,7 +1264,7 @@ const MainModeToggle = ({ mainMode, onMainModeChange }) => {
     <div className="flex items-center justify-center bg-gray-100 rounded-lg p-1 shadow-sm">
       <button
         onClick={() => onMainModeChange('plans')}
-        className={`flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+        className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-md font-medium transition-all duration-200 ${
           mainMode === 'plans'
             ? 'bg-white text-indigo-700 shadow-sm'
             : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
@@ -1270,11 +1273,11 @@ const MainModeToggle = ({ mainMode, onMainModeChange }) => {
         <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        <span className="text-sm sm:text-base font-medium">Filter Plans</span>
+        <span className="text-xs sm:text-sm font-medium">Plans</span>
       </button>
       <button
         onClick={() => onMainModeChange('maps')}
-        className={`flex items-center space-x-1 sm:space-x-2 px-3 sm:px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+        className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-md font-medium transition-all duration-200 ${
           mainMode === 'maps'
             ? 'bg-white text-indigo-700 shadow-sm'
             : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
@@ -1283,7 +1286,20 @@ const MainModeToggle = ({ mainMode, onMainModeChange }) => {
         <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
         </svg>
-        <span className="text-sm sm:text-base font-medium">Filter Maps</span>
+        <span className="text-xs sm:text-sm font-medium">Maps</span>
+      </button>
+      <button
+        onClick={() => onMainModeChange('nature')}
+        className={`flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 rounded-md font-medium transition-all duration-200 ${
+          mainMode === 'nature'
+            ? 'bg-white text-green-700 shadow-sm'
+            : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+        }`}
+      >
+        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+        </svg>
+        <span className="text-xs sm:text-sm font-medium">Nature</span>
       </button>
     </div>
   );
@@ -1777,11 +1793,18 @@ const App = () => {
     return savedView || 'table';
   });
 
-  // State for Main Mode Toggle (Plans vs Maps view)
+  // State for Main Mode Toggle (Plans vs Maps vs Nature Reporting view)
   const [mainMode, setMainMode] = useState(() => {
     const savedMode = localStorage.getItem('landapp-main-mode');
     return savedMode || 'plans';
   });
+
+  // State for Nature Reporting
+  const [selectedMapForNature, setSelectedMapForNature] = useState(null);
+  const [showNatureDashboard, setShowNatureDashboard] = useState(false);
+  const [availableNatureMapNames, setAvailableNatureMapNames] = useState([]);
+  const [loadingNatureMaps, setLoadingNatureMaps] = useState(false);
+  const [natureMapsError, setNatureMapsError] = useState(null);
 
   // State for Modals
   const [showContractModal, setShowContractModal] = useState(false);
@@ -1875,6 +1898,13 @@ const App = () => {
   useEffect(() => {
     localStorage.setItem('landapp-main-mode', mainMode);
   }, [mainMode]);
+
+  // Load available Nature Reporting maps when entering nature mode
+  useEffect(() => {
+    if (mainMode === 'nature' && landAppApiKey && availableNatureMapNames.length === 0) {
+      loadAvailableNatureMaps();
+    }
+  }, [mainMode, landAppApiKey]);
 
   // Save Land App API key to localStorage whenever it changes
   useEffect(() => {
@@ -2266,6 +2296,40 @@ const App = () => {
     setShowMapPlansDialog(true);
   };
 
+  // --- Handle Nature Reporting Navigation ---
+  const handleMapNameClickForNature = (mapName) => {
+    setSelectedMapForNature(mapName);
+    setShowNatureDashboard(true);
+    setMainMode('nature');
+  };
+
+  const handleBackFromNatureDashboard = () => {
+    setShowNatureDashboard(false);
+    setSelectedMapForNature(null);
+    setMainMode('maps');
+  };
+
+  // --- Load Available Nature Reporting Maps ---
+  const loadAvailableNatureMaps = async () => {
+    if (!landAppApiKey) {
+      setNatureMapsError('API key required to load Nature Reporting maps');
+      return;
+    }
+
+    setLoadingNatureMaps(true);
+    setNatureMapsError(null);
+
+    try {
+      const mapNames = await natureReportingService.fetchAvailableMapNames(landAppApiKey);
+      setAvailableNatureMapNames(mapNames);
+    } catch (error) {
+      console.error('Error loading available Nature Reporting maps:', error);
+      setNatureMapsError(error.message);
+    } finally {
+      setLoadingNatureMaps(false);
+    }
+  };
+
   // --- Handle plan toggle for map display ---
   const handlePlanToggle = (planId, updatedPlans) => {
     setSelectedMapPlans(updatedPlans);
@@ -2294,7 +2358,7 @@ const App = () => {
     setShowMapPlansDialog(true);
   };
 
-  // EPC Analysis functions for features dialog
+  // EPC Analysis functions for features dialog with OS Linked Identifiers integration
   const handleFeaturesEpcAnalysis = async () => {
     if (!selectedPlanFeatures || selectedPlanFeatures.length === 0) {
       setFeaturesEpcError("No features available for EPC analysis. Please load plan features first.");
@@ -2319,24 +2383,124 @@ const App = () => {
         throw new Error("No building features found in this OSMasterMap plan.");
       }
 
-      console.log(`Processing EPC data for ${buildings.length} buildings from ${selectedPlanForFeatures.name}...`);
+      console.log(`Starting enhanced EPC analysis for ${buildings.length} buildings from ${selectedPlanForFeatures.name}...`);
 
-      // Process EPC data for this specific plan's buildings
-      const result = await epcService.processEstateEPC(buildings, (progress) => {
-        // Update progress in real-time
-        setFeaturesEpcData(prev => ({ ...prev, progress }));
-      });
+      let enhancedBuildings = buildings;
+      let useEnhanced = false;
 
-      if (!result.success) {
-        throw new Error(result.error);
+      // Phase 1: Try to enhance buildings with UPRNs using OS Linked Identifiers API
+      if (osLinkedIdentifiersService.isOSApiConfigured()) {
+        try {
+          console.log("🔗 Phase 1: Enhancing buildings with UPRNs via OS Linked Identifiers API...");
+          
+          // Update progress to show UPRN enhancement phase
+          setFeaturesEpcData({ 
+            progress: { 
+              completed: 0, 
+              total: buildings.length, 
+              percentage: 0,
+              phase: 'uprn_enhancement',
+              message: 'Linking OSMasterMap buildings to UPRNs...'
+            } 
+          });
+
+          const enhancementResult = await osLinkedIdentifiersService.prepareEnhancedBuildingsForEPC(
+            buildings, 
+            (progress) => {
+              // Update progress for UPRN enhancement
+              setFeaturesEpcData(prev => ({ 
+                ...prev, 
+                progress: {
+                  ...progress,
+                  phase: 'uprn_enhancement',
+                  message: `Linking ${progress.completed}/${progress.total} buildings to UPRNs...`
+                }
+              }));
+            }
+          );
+
+          if (enhancementResult.success && enhancementResult.stats.withUPRNs > 0) {
+            enhancedBuildings = enhancementResult.enhancedBuildings;
+            useEnhanced = true;
+            
+            console.log(`✅ UPRN Enhancement completed: ${enhancementResult.stats.withUPRNs}/${enhancementResult.stats.total} buildings enhanced with UPRNs`);
+            
+            // Show brief success message before proceeding to EPC phase
+            setFeaturesEpcData({ 
+              progress: { 
+                completed: enhancementResult.stats.total, 
+                total: enhancementResult.stats.total, 
+                percentage: 100,
+                phase: 'uprn_enhancement_complete',
+                message: `Enhanced ${enhancementResult.stats.withUPRNs} buildings with UPRNs. Starting EPC analysis...`,
+                enhancementStats: enhancementResult.stats
+              } 
+            });
+
+            // Small delay to show the completion message
+            await new Promise(resolve => setTimeout(resolve, 1500));
+          } else {
+            console.warn("⚠️ UPRN enhancement failed or found no UPRNs, falling back to original method");
+          }
+        } catch (enhanceError) {
+          console.warn("⚠️ UPRN enhancement error, falling back to original method:", enhanceError.message);
+        }
+      } else {
+        console.log("⚙️ OS Linked Identifiers API not configured, using original EPC method");
       }
 
-      setFeaturesEpcData(result);
-      setFeaturesEpcSummary(result.summary);
+      // Phase 2: Process EPC data with enhanced or original buildings
+      console.log(`🏢 Phase 2: Processing EPC data using ${useEnhanced ? 'enhanced' : 'original'} building data...`);
+
+      const epcResult = useEnhanced 
+        ? await epcService.processEstateEPC(
+            enhancedBuildings, // Use enhanced buildings directly
+            (progress) => {
+              setFeaturesEpcData(prev => ({ 
+                ...prev, 
+                progress: {
+                  ...progress,
+                  phase: 'epc_processing',
+                  message: `Processing EPC data for ${progress.completed}/${progress.total} buildings...`
+                }
+              }));
+            }
+          )
+        : await epcService.processEstateEPC(
+            buildings, 
+            (progress) => {
+              setFeaturesEpcData(prev => ({ 
+                ...prev, 
+                progress: {
+                  ...progress,
+                  phase: 'epc_processing',
+                  message: `Processing EPC data for ${progress.completed}/${progress.total} buildings...`
+                }
+              }));
+            }
+          );
+
+      if (!epcResult.success) {
+        throw new Error(epcResult.error);
+      }
+
+      // Add enhancement metadata to the result
+      const finalResult = {
+        ...epcResult,
+        enhancement: {
+          used: useEnhanced,
+          method: useEnhanced ? 'OS Linked Identifiers API' : 'Original OSMM data',
+          stats: useEnhanced ? setFeaturesEpcData?.progress?.enhancementStats : null
+        }
+      };
+
+      setFeaturesEpcData(finalResult);
+      setFeaturesEpcSummary(finalResult.summary);
       
-      console.log("Features EPC processing completed:", result);
+      console.log(`✅ Enhanced EPC processing completed using ${useEnhanced ? 'OS API enhanced' : 'original'} method:`, finalResult);
+      
     } catch (err) {
-      console.error("Features EPC processing error:", err);
+      console.error("Enhanced EPC processing error:", err);
       setFeaturesEpcError(err.message);
     } finally {
       setFeaturesEpcLoading(false);
@@ -2345,6 +2509,7 @@ const App = () => {
 
   const handleFeaturesEpcRefresh = () => {
     epcService.clearCache();
+    osLinkedIdentifiersService.clearCache();
     handleFeaturesEpcAnalysis();
   };
 
@@ -3106,13 +3271,88 @@ const App = () => {
             </table>
           </div>
           )}
-            </>) : (
+            </>) : mainMode === 'maps' ? (
             // Maps View
             <MapsList
               allPlans={plans}
               onMapClick={handleMapNameClick}
             />
-          )}
+          ) : mainMode === 'nature' ? (
+            // Nature Reporting View
+            showNatureDashboard && selectedMapForNature ? (
+              <NatureDashboard
+                apiKey={landAppApiKey}
+                selectedMap={selectedMapForNature}
+                onBack={handleBackFromNatureDashboard}
+              />
+            ) : (
+              // Nature Reporting Map Selection
+              <div>
+                <div className="text-center mb-6">
+                  <h2 className="text-2xl font-bold text-green-700 mb-4">Nature Reporting</h2>
+                  <p className="text-gray-600">
+                    Select a map to view comprehensive environmental metrics and analysis
+                  </p>
+                  {loadingNatureMaps && (
+                    <div className="mt-4 flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+                      <span className="ml-2 text-sm text-gray-600">Loading available maps...</span>
+                    </div>
+                  )}
+                  {natureMapsError && (
+                    <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md text-sm">
+                      {natureMapsError}
+                    </div>
+                  )}
+                  {!loadingNatureMaps && !natureMapsError && availableNatureMapNames.length > 0 && (
+                    <p className="text-sm text-green-600 mt-2">
+                      {availableNatureMapNames.length} maps available with Nature Reporting data
+                    </p>
+                  )}
+                </div>
+                
+                {loadingNatureMaps ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+                    <p className="text-gray-600 mt-4">Loading Nature Reporting maps...</p>
+                  </div>
+                ) : natureMapsError ? (
+                  <div className="text-center py-12">
+                    <div className="text-red-500 mb-4">
+                      <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">Error Loading Nature Reporting Maps</h3>
+                    <p className="text-gray-600 mb-4">{natureMapsError}</p>
+                    <button
+                      onClick={loadAvailableNatureMaps}
+                      className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md transition duration-300"
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                ) : availableNatureMapNames.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="text-gray-400 mb-4">
+                      <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">No Nature Reporting Data Available</h3>
+                    <p className="text-gray-600">
+                      None of your maps currently have Nature Reporting metrics available.
+                    </p>
+                  </div>
+                ) : (
+                  <MapsList
+                    allPlans={natureReportingService.filterPlansWithNatureReporting(plans, availableNatureMapNames)}
+                    onMapClick={handleMapNameClickForNature}
+                  />
+                )}
+              </div>
+            )
+          ) : null}
         </div>
       )}
 
