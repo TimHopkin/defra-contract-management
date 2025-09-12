@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import mapProfileService from '../lib/mapProfileService';
 import NatureDashboard from './NatureReporting/NatureDashboard';
 import LandAnalysisDialog from './LandAnalysisDialog';
+import PlanDetailModal from './PlanDetailModal';
 
 const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
   const [mapInput, setMapInput] = useState('');
@@ -13,6 +14,7 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
   const [currentView, setCurrentView] = useState('overview');
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [showLandAnalysis, setShowLandAnalysis] = useState(false);
+  const [showPlanDetail, setShowPlanDetail] = useState(false);
 
   const handleMapIdSubmit = async (e) => {
     e.preventDefault();
@@ -51,6 +53,17 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePlanClick = (plan) => {
+    console.log('Plan clicked:', plan);
+    setSelectedPlan(plan);
+    setShowPlanDetail(true);
+  };
+
+  const handleClosePlanDetail = () => {
+    setShowPlanDetail(false);
+    setSelectedPlan(null);
   };
 
   const QuickStatsCard = ({ title, value, subtitle, color, icon, onClick }) => (
@@ -356,7 +369,7 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  <PlansOverview plans={profile.plans} onPlanClick={setSelectedPlan} />
+                  <PlansOverview plans={profile.plans} onPlanClick={handlePlanClick} />
                   <DataAvailabilityIndicator profile={profile} />
                 </div>
               </>
@@ -370,7 +383,7 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
                   {profile.plans.map((plan) => (
                     <div
                       key={plan.id}
-                      onClick={() => setSelectedPlan(plan)}
+                      onClick={() => handlePlanClick(plan)}
                       className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 cursor-pointer transition-colors border border-gray-200"
                     >
                       <h4 className="font-semibold text-gray-900 mb-2">{plan.name}</h4>
@@ -469,6 +482,15 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
         <LandAnalysisDialog
           analysis={profile.landAnalysis}
           onClose={() => setShowLandAnalysis(false)}
+        />
+      )}
+
+      {/* Plan Detail Modal */}
+      {showPlanDetail && selectedPlan && (
+        <PlanDetailModal
+          plan={selectedPlan}
+          apiKey={landAppApiKey}
+          onClose={handleClosePlanDetail}
         />
       )}
     </div>
