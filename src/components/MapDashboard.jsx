@@ -3,6 +3,7 @@ import mapProfileService from '../lib/mapProfileService';
 import NatureDashboard from './NatureReporting/NatureDashboard';
 import LandAnalysisDialog from './LandAnalysisDialog';
 import PlanDetailModal from './PlanDetailModal';
+import DataLayersDashboard from './DataLayersDashboard';
 
 const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
   const [mapInput, setMapInput] = useState('');
@@ -45,6 +46,26 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
         setProgress
       );
 
+      console.log('🏗️ === MAP PROFILE LOADED ===');
+      console.log('📊 Map Profile Structure:', {
+        hasProfile: !!mapProfile,
+        keys: mapProfile ? Object.keys(mapProfile) : [],
+        plansCount: mapProfile?.plans?.length || 0,
+        planFeaturesCount: mapProfile?.planFeatures?.length || 0,
+        planFeaturesStructure: mapProfile?.planFeatures ? mapProfile.planFeatures.map((pf, index) => ({
+          index,
+          planId: pf.planId,
+          featuresCount: pf.features?.length || 0,
+          keys: Object.keys(pf)
+        })) : 'No plan features',
+        firstPlan: mapProfile?.plans?.[0] ? {
+          id: mapProfile.plans[0].id,
+          name: mapProfile.plans[0].name,
+          keys: Object.keys(mapProfile.plans[0])
+        } : 'No plans'
+      });
+      console.log('🏗️ === MAP PROFILE LOADED END ===');
+
       setProfile(mapProfile);
       setCurrentView('overview');
     } catch (error) {
@@ -56,13 +77,58 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
   };
 
   const handlePlanClick = (plan) => {
-    console.log('Plan clicked:', plan);
-    console.log('Available planFeatures:', profile?.planFeatures?.length || 0);
-    console.log('Available planFeatures IDs:', profile?.planFeatures?.map(pf => pf.planId) || []);
+    console.log('🎯 === PLAN CLICK DEBUG START ===');
+    console.log('📋 Plan clicked:', {
+      id: plan.id,
+      name: plan.name,
+      planType: plan.planType,
+      status: plan.status,
+      allKeys: Object.keys(plan)
+    });
+    
+    console.log('🗃️ Available profile data:', {
+      hasProfile: !!profile,
+      profileKeys: profile ? Object.keys(profile) : [],
+      planFeaturesExists: !!profile?.planFeatures,
+      planFeaturesCount: profile?.planFeatures?.length || 0,
+      planFeaturesType: Array.isArray(profile?.planFeatures) ? 'array' : typeof profile?.planFeatures
+    });
+    
+    if (profile?.planFeatures && profile.planFeatures.length > 0) {
+      console.log('📊 Plan Features Structure Analysis:', {
+        totalPlanFeatures: profile.planFeatures.length,
+        firstFewStructures: profile.planFeatures.slice(0, 3).map((pf, index) => ({
+          index,
+          planId: pf.planId,
+          featuresCount: pf.features?.length || 0,
+          allKeys: Object.keys(pf),
+          sampleFeature: pf.features?.[0] ? {
+            hasArea: !!pf.features[0].area,
+            hasProperties: !!pf.features[0].properties,
+            keys: Object.keys(pf.features[0])
+          } : 'No features'
+        })),
+        allPlanIds: profile.planFeatures.map(pf => pf.planId)
+      });
+    }
+    
+    console.log('🔍 Searching for plan features with ID:', plan.id);
     
     // Find existing features for this plan from the map profile data
     const planFeatures = profile?.planFeatures?.find(pf => pf.planId === plan.id);
-    console.log('Found planFeatures for this plan:', planFeatures);
+    
+    console.log('🎯 Plan Features Search Result:', {
+      found: !!planFeatures,
+      planFeaturesData: planFeatures ? {
+        planId: planFeatures.planId,
+        featuresCount: planFeatures.features?.length || 0,
+        firstFeatureKeys: planFeatures.features?.[0] ? Object.keys(planFeatures.features[0]) : 'No features',
+        sampleFeatureProperties: planFeatures.features?.[0]?.properties,
+        sampleFeatureArea: planFeatures.features?.[0]?.area
+      } : null,
+      searchedId: plan.id,
+      availableIds: profile?.planFeatures?.map(pf => pf.planId) || []
+    });
     
     const enhancedPlan = {
       ...plan,
@@ -71,13 +137,21 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
       mapProfile: profile // Pass the entire profile for additional context
     };
     
-    console.log(`Plan ${plan.name} enhanced data:`, {
-      id: plan.id,
-      name: plan.name,
+    console.log('✨ Enhanced Plan Final Data:', {
+      originalPlanId: plan.id,
+      planName: plan.name,
       planType: plan.planType,
       existingFeaturesCount: enhancedPlan.existingFeatures.length,
-      hasExistingFeatures: enhancedPlan.hasExistingFeatures
+      hasExistingFeatures: enhancedPlan.hasExistingFeatures,
+      firstExistingFeature: enhancedPlan.existingFeatures[0] ? {
+        hasArea: !!enhancedPlan.existingFeatures[0].area,
+        area: enhancedPlan.existingFeatures[0].area,
+        hasProperties: !!enhancedPlan.existingFeatures[0].properties,
+        keys: Object.keys(enhancedPlan.existingFeatures[0])
+      } : 'No features found'
     });
+    
+    console.log('🎯 === PLAN CLICK DEBUG END ===');
     
     setSelectedPlan(enhancedPlan);
     setShowPlanDetail(true);
@@ -155,10 +229,9 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
   const ViewToggle = () => {
     const views = [
       { id: 'overview', label: 'Overview', icon: '📊' },
-      { id: 'plans', label: 'Plans', icon: '📋' },
-      { id: 'map', label: 'Map View', icon: '🗺️' },
       ...(profile?.summary.hasNatureReporting ? [{ id: 'nature', label: 'Nature Reporting', icon: '🌿' }] : []),
-      ...(profile?.summary.hasLandAnalysis ? [{ id: 'analysis', label: 'Land Analysis', icon: '📈' }] : [])
+      ...(profile?.summary.hasLandAnalysis ? [{ id: 'analysis', label: 'Land Analysis', icon: '📈' }] : []),
+      { id: 'data-layers', label: 'Data Layers', icon: '📋' }
     ];
 
     return (
@@ -231,7 +304,7 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="bg-gray-50 min-h-screen">
       {/* Header */}
       <div className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -251,7 +324,22 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
                   <p className="text-gray-600">Comprehensive map profile and analysis</p>
                 </div>
               </div>
-              {profile && <ViewToggle />}
+              <div className="flex items-center space-x-3">
+                {profile && <ViewToggle />}
+                {!profile && (
+                  <button
+                    onClick={() => setCurrentView('data-layers')}
+                    className={`flex items-center space-x-2 px-4 py-2 rounded-md font-medium transition-all duration-200 ${
+                      currentView === 'data-layers'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'bg-gray-100 text-gray-600 hover:text-gray-800 hover:bg-gray-200'
+                    }`}
+                  >
+                    <span>📋</span>
+                    <span>Data Layers</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -259,7 +347,7 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Map ID Input Form */}
-        {!profile && (
+        {!profile && currentView !== 'data-layers' && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 mb-8">
             <div className="max-w-2xl mx-auto text-center">
               <h2 className="text-2xl font-bold text-gray-900 mb-4">Enter Map ID or URL</h2>
@@ -300,6 +388,13 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
               )}
             </div>
           </div>
+        )}
+
+        {/* Standalone Data Layers View */}
+        {!profile && currentView === 'data-layers' && (
+          <DataLayersDashboard
+            onBack={() => setCurrentView('overview')}
+          />
         )}
 
         {/* Map Profile Display */}
@@ -397,31 +492,6 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
               </>
             )}
 
-            {/* Plans View */}
-            {currentView === 'plans' && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-6">All Plans ({profile.plans.length})</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {profile.plans.map((plan, index) => (
-                    <div
-                      key={`plan-${plan.id}-${index}`}
-                      onClick={() => handlePlanClick(plan)}
-                      className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 cursor-pointer transition-colors border border-gray-200"
-                    >
-                      <h4 className="font-semibold text-gray-900 mb-2">{plan.name}</h4>
-                      <div className="space-y-1 text-sm text-gray-600">
-                        <p><strong>Type:</strong> {plan.planType || 'Unknown'}</p>
-                        <p><strong>Status:</strong> {plan.status || 'Unknown'}</p>
-                        {plan.mapName && <p><strong>Map:</strong> {plan.mapName}</p>}
-                        {plan.createdAt && (
-                          <p><strong>Created:</strong> {new Date(plan.createdAt).toLocaleDateString()}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Nature Reporting View */}
             {currentView === 'nature' && profile.summary.hasNatureReporting && (
@@ -470,6 +540,13 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* Data Layers View */}
+            {currentView === 'data-layers' && (
+              <DataLayersDashboard
+                onBack={() => setCurrentView('overview')}
+              />
             )}
 
             {/* Warnings Display */}

@@ -19,10 +19,18 @@ const PlanDetailModal = ({ plan, apiKey, onClose }) => {
     setError(null);
     
     try {
+      console.log('🔄 Loading plan details for:', plan?.name, plan?.id);
       const details = await planDetailService.getComprehensivePlanDetails(plan, apiKey);
+      console.log('✅ Plan details loaded successfully:', {
+        hasPlan: !!details?.plan,
+        planName: details?.plan?.name,
+        featuresCount: details?.features?.total,
+        hasGeometry: !!details?.geometry,
+        hasFinancial: !!details?.financial
+      });
       setPlanDetails(details);
     } catch (err) {
-      console.error('Error loading plan details:', err);
+      console.error('❌ Error loading plan details:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -37,13 +45,44 @@ const PlanDetailModal = ({ plan, apiKey, onClose }) => {
     { id: 'recommendations', label: 'Actions', icon: '🎯' }
   ];
 
-  if (loading || !planDetails || !planDetails.plan) {
+  if (loading) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
         <div className="bg-white rounded-xl p-8 max-w-md w-full mx-4 text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mx-auto mb-4"></div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading Plan Details</h3>
           <p className="text-gray-600">Analyzing {plan?.name}...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!planDetails || !planDetails.plan) {
+    console.log('⚠️ Plan details missing:', { planDetails: !!planDetails, plan: !!planDetails?.plan });
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div className="bg-white rounded-xl p-8 max-w-md w-full mx-4 text-center">
+          <div className="text-yellow-500 mb-4">
+            <svg className="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Plan Data Missing</h3>
+          <p className="text-gray-600 mb-4">Unable to load plan details for {plan?.name}</p>
+          <div className="space-x-3">
+            <button
+              onClick={loadPlanDetails}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition duration-300"
+            >
+              Retry
+            </button>
+            <button
+              onClick={onClose}
+              className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-lg transition duration-300"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     );
