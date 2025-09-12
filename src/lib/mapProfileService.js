@@ -82,7 +82,13 @@ class MapProfileService {
               const plansFromPage = data.data;
               console.log(`✅ Got ${plansFromPage.length} ${planType} plans from page ${currentPage}`);
               
-              allPlans.push(...plansFromPage);
+              // Add planType to each plan object since the API doesn't include it
+              const plansWithType = plansFromPage.map(plan => ({
+                ...plan,
+                planType: planType // Critical: Add the planType we used to fetch this plan
+              }));
+              
+              allPlans.push(...plansWithType);
               
               // Check if there are more pages
               hasNext = data.hasNext === true;

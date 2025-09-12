@@ -57,9 +57,13 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
 
   const handlePlanClick = (plan) => {
     console.log('Plan clicked:', plan);
+    console.log('Available planFeatures:', profile?.planFeatures?.length || 0);
+    console.log('Available planFeatures IDs:', profile?.planFeatures?.map(pf => pf.planId) || []);
     
     // Find existing features for this plan from the map profile data
     const planFeatures = profile?.planFeatures?.find(pf => pf.planId === plan.id);
+    console.log('Found planFeatures for this plan:', planFeatures);
+    
     const enhancedPlan = {
       ...plan,
       existingFeatures: planFeatures?.features || [],
@@ -67,7 +71,14 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
       mapProfile: profile // Pass the entire profile for additional context
     };
     
-    console.log(`Found ${enhancedPlan.existingFeatures.length} existing features for plan ${plan.name}`);
+    console.log(`Plan ${plan.name} enhanced data:`, {
+      id: plan.id,
+      name: plan.name,
+      planType: plan.planType,
+      existingFeaturesCount: enhancedPlan.existingFeatures.length,
+      hasExistingFeatures: enhancedPlan.hasExistingFeatures
+    });
+    
     setSelectedPlan(enhancedPlan);
     setShowPlanDetail(true);
   };
