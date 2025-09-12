@@ -37,7 +37,7 @@ const PlanDetailModal = ({ plan, apiKey, onClose }) => {
     { id: 'recommendations', label: 'Actions', icon: '🎯' }
   ];
 
-  if (loading || !planDetails) {
+  if (loading || !planDetails || !planDetails.plan || !planDetails.geometry || !planDetails.financial) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
         <div className="bg-white rounded-xl p-8 max-w-md w-full mx-4 text-center">

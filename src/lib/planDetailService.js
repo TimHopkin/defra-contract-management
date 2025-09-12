@@ -116,7 +116,66 @@ class PlanDetailService {
       
     } catch (error) {
       console.error('Error fetching comprehensive plan details:', error);
-      throw new Error(`Failed to fetch plan details: ${error.message}`);
+      
+      // Return a fallback structure instead of throwing
+      const fallbackDetails = {
+        plan: {
+          ...plan,
+          fullName: this.getPlanFullName(plan.planType),
+          statusBadge: this.getPlanStatusBadge(plan),
+          colorScheme: this.getPlanColorScheme(plan.planType)
+        },
+        
+        geometry: {
+          totalArea: 0,
+          totalAreaHa: 0,
+          totalAreaAcres: 0,
+          totalAreaFormatted: '0 ha',
+          featureGroups: {},
+          summary: {
+            totalFeatures: 0,
+            validFeatures: 0,
+            areaCalculated: false
+          }
+        },
+        
+        financial: {
+          areaHa: 0,
+          currentPayment: { total: 0, error: 'Failed to load plan data' },
+          potentialPayment: { total: 0, error: 'Failed to load plan data' },
+          availableActions: [],
+          upscalePotential: 0,
+          roi: null,
+          scheme: paymentRatesService.getSchemeInfo(plan.planType)
+        },
+        
+        recommendations: [],
+        
+        features: {
+          total: 0,
+          byType: {},
+          geoJson: {
+            type: 'FeatureCollection',
+            features: []
+          }
+        },
+        
+        metadata: {
+          processingTime: Date.now() - startTime,
+          dataQuality: { grade: 'Low', score: 0, issues: ['Failed to load plan data'] },
+          lastUpdated: new Date().toISOString(),
+          apiVersion: '1.0',
+          error: error.message
+        },
+        
+        rawData: {
+          originalPlan: plan,
+          features: [],
+          additionalData: {}
+        }
+      };
+      
+      return fallbackDetails;
     }
   }
 
