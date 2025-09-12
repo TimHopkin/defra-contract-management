@@ -37,7 +37,7 @@ const PlanDetailModal = ({ plan, apiKey, onClose }) => {
     { id: 'recommendations', label: 'Actions', icon: '🎯' }
   ];
 
-  if (loading || !planDetails || !planDetails.plan || !planDetails.geometry || !planDetails.financial) {
+  if (loading || !planDetails || !planDetails.plan) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
         <div className="bg-white rounded-xl p-8 max-w-md w-full mx-4 text-center">
@@ -121,14 +121,18 @@ const PlanDetailModal = ({ plan, apiKey, onClose }) => {
           {/* Quick Stats */}
           <div className="flex items-center space-x-6 text-sm">
             <div className="text-center">
-              <div className="font-semibold text-gray-900">{planDetails.geometry.totalAreaFormatted}</div>
+              <div className="font-semibold text-gray-900">
+                {planDetails?.geometry?.totalAreaFormatted || 'Calculating...'}
+              </div>
               <div className="text-gray-600">Total Area</div>
             </div>
             <div className="text-center">
-              <div className="font-semibold text-gray-900">{planDetails.features.total}</div>
+              <div className="font-semibold text-gray-900">
+                {planDetails?.features?.total || 0}
+              </div>
               <div className="text-gray-600">
                 Features
-                {planDetails.plan.hasExistingFeatures && (
+                {planDetails?.plan?.hasExistingFeatures && (
                   <span className="ml-1 text-xs text-green-600">✓</span>
                 )}
               </div>
@@ -137,7 +141,7 @@ const PlanDetailModal = ({ plan, apiKey, onClose }) => {
               <div className="font-semibold text-gray-900">
                 {planDetails?.financial?.potentialPayment?.total ? 
                   paymentRatesService.formatCurrency(planDetails.financial.potentialPayment.total) : 
-                  'N/A'
+                  'Calculating...'
                 }
               </div>
               <div className="text-gray-600">
@@ -188,7 +192,7 @@ const OverviewTab = ({ planDetails }) => {
   return (
     <div className="p-6 space-y-6">
       {/* Data Availability Notice */}
-      {(financial.analysisType === 'estimated' || !plan.hasExistingFeatures || metadata.error) && (
+      {(financial?.analysisType === 'estimated' || !plan?.hasExistingFeatures || metadata?.error) && (
         <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
           <div className="flex">
             <div className="flex-shrink-0">
@@ -220,8 +224,8 @@ const OverviewTab = ({ planDetails }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricCard
           title="Total Area"
-          value={geometry.totalAreaFormatted}
-          subtitle={`${geometry.totalAreaAcres.toFixed(1)} acres`}
+          value={geometry?.totalAreaFormatted || 'Estimated'}
+          subtitle={geometry?.totalAreaAcres ? `${geometry.totalAreaAcres.toFixed(1)} acres` : 'See analysis'}
           icon={
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z" />
@@ -232,8 +236,8 @@ const OverviewTab = ({ planDetails }) => {
         
         <MetricCard
           title="Features"
-          value={planDetails.features.total.toString()}
-          subtitle={`${geometry.summary.validFeatures} valid`}
+          value={(planDetails?.features?.total || 0).toString()}
+          subtitle={`${geometry?.summary?.validFeatures || 0} valid`}
           icon={
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
@@ -244,8 +248,10 @@ const OverviewTab = ({ planDetails }) => {
         
         <MetricCard
           title="Potential Payment"
-          value={paymentRatesService.formatCurrency(financial.potentialPayment.total)}
-          subtitle="Annual estimate"
+          value={financial?.potentialPayment?.total ? 
+            paymentRatesService.formatCurrency(financial.potentialPayment.total) : 
+            'Calculating...'}
+          subtitle={financial?.analysisType === 'estimated' ? 'Estimated annual' : 'Annual estimate'}
           icon={
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
@@ -256,16 +262,16 @@ const OverviewTab = ({ planDetails }) => {
         
         <MetricCard
           title="Data Quality"
-          value={metadata.dataQuality.grade}
-          subtitle={`${metadata.dataQuality.score}/100`}
+          value={metadata?.dataQuality?.grade || 'Processing...'}
+          subtitle={metadata?.dataQuality?.score ? `${metadata.dataQuality.score}/100` : 'Analyzing'}
           icon={
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           }
-          color={`${metadata.dataQuality.grade === 'High' ? 'bg-green-100 text-green-600' : 
-                    metadata.dataQuality.grade === 'Medium' ? 'bg-yellow-100 text-yellow-600' : 
-                    'bg-red-100 text-red-600'}`}
+          color={`${(metadata?.dataQuality?.grade === 'High') ? 'bg-green-100 text-green-600' : 
+                    (metadata?.dataQuality?.grade === 'Medium') ? 'bg-yellow-100 text-yellow-600' : 
+                    'bg-orange-100 text-orange-600'}`}
         />
       </div>
 
@@ -274,27 +280,33 @@ const OverviewTab = ({ planDetails }) => {
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Scheme Information</h3>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div>
-            <h4 className="font-medium text-gray-900 mb-2">{financial.scheme.fullName}</h4>
-            <p className="text-gray-600 mb-4">{financial.scheme.description}</p>
+            <h4 className="font-medium text-gray-900 mb-2">
+              {financial?.scheme?.fullName || 'Plan Information'}
+            </h4>
+            <p className="text-gray-600 mb-4">
+              {financial?.scheme?.description || 'Payment analysis and scheme information based on plan type.'}
+            </p>
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span className="text-gray-600">Status:</span>
                 <span className={`font-medium ${
-                  financial.scheme.status === 'Active' ? 'text-green-600' :
-                  financial.scheme.status === 'Phasing out' ? 'text-red-600' :
+                  financial?.scheme?.status === 'Active' ? 'text-green-600' :
+                  financial?.scheme?.status === 'Phasing out' ? 'text-red-600' :
                   'text-gray-600'
-                }`}>{financial.scheme.status}</span>
+                }`}>{financial?.scheme?.status || 'Available'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Applications:</span>
-                <span className="font-medium">{financial.scheme.applicationStatus}</span>
+                <span className="font-medium">
+                  {financial?.scheme?.applicationStatus || 'Check government guidance'}
+                </span>
               </div>
             </div>
           </div>
           <div>
             <h4 className="font-medium text-gray-900 mb-2">Key Features</h4>
             <ul className="space-y-1">
-              {financial.scheme.keyFeatures.map((feature, index) => (
+              {(financial?.scheme?.keyFeatures || ['Government payment rates available', 'Comprehensive scheme analysis', 'Financial projections and ROI calculations']).map((feature, index) => (
                 <li key={index} className="flex items-start space-x-2 text-sm text-gray-600">
                   <span className="text-green-500 mt-1">•</span>
                   <span>{feature}</span>
