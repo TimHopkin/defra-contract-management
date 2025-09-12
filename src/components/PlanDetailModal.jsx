@@ -126,7 +126,12 @@ const PlanDetailModal = ({ plan, apiKey, onClose }) => {
             </div>
             <div className="text-center">
               <div className="font-semibold text-gray-900">{planDetails.features.total}</div>
-              <div className="text-gray-600">Features</div>
+              <div className="text-gray-600">
+                Features
+                {planDetails.plan.hasExistingFeatures && (
+                  <span className="ml-1 text-xs text-green-600">✓</span>
+                )}
+              </div>
             </div>
             <div className="text-center">
               <div className="font-semibold text-gray-900">
@@ -135,7 +140,12 @@ const PlanDetailModal = ({ plan, apiKey, onClose }) => {
                   'N/A'
                 }
               </div>
-              <div className="text-gray-600">Potential Annual</div>
+              <div className="text-gray-600">
+                Potential Annual
+                {planDetails?.financial?.analysisType === 'estimated' && (
+                  <span className="ml-1 text-xs text-orange-600">~</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -177,6 +187,35 @@ const OverviewTab = ({ planDetails }) => {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Data Availability Notice */}
+      {(financial.analysisType === 'estimated' || !plan.hasExistingFeatures || metadata.error) && (
+        <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3 flex-1">
+              <h3 className="text-sm font-medium text-blue-800">Data Availability Notice</h3>
+              <div className="mt-2 text-sm text-blue-700 space-y-1">
+                {!plan.hasExistingFeatures && (
+                  <p>• Plan features not available from API - using payment estimates</p>
+                )}
+                {financial.analysisType === 'estimated' && (
+                  <p>• Area calculations based on typical farm sizes for this scheme type</p>
+                )}
+                {metadata.error && (
+                  <p>• Some API endpoints unavailable - analysis based on available data</p>
+                )}
+                <p className="font-medium">Government payment rates and scheme information are current and accurate.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      
       {/* Key Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricCard

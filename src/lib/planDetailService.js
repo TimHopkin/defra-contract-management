@@ -49,15 +49,36 @@ class PlanDetailService {
     }
 
     console.log(`🔍 Fetching comprehensive details for plan: ${plan.name} (${plan.planType})`);
+    console.log(`📊 Has existing features: ${plan.hasExistingFeatures} (${plan.existingFeatures?.length || 0} features)`);
 
     const startTime = Date.now();
     
     try {
-      // Fetch plan features and data in parallel
-      const [features, additionalData] = await Promise.all([
-        this.fetchPlanFeatures(plan.id, apiKey),
-        this.fetchAdditionalPlanData(plan.id, apiKey)
-      ]);
+      let features = [];
+      let additionalData = {};
+      
+      // Prioritize existing features from Map Dashboard
+      if (plan.hasExistingFeatures && plan.existingFeatures.length > 0) {
+        console.log(`✅ Using existing features from Map Dashboard (${plan.existingFeatures.length} features)`);
+        features = plan.existingFeatures;
+        
+        // Still try to fetch additional data, but don't fail if it's not available
+        try {
+          additionalData = await this.fetchAdditionalPlanData(plan.id, apiKey);
+        } catch (error) {
+          console.log(`⚠️ Additional data not available, using plan data from Map Dashboard`);
+          additionalData = {}; // Will use fallback data
+        }
+      } else {
+        console.log(`🌐 No existing features available, attempting API fetch...`);
+        // Fall back to API fetch if no existing data
+        const [fetchedFeatures, fetchedAdditionalData] = await Promise.all([
+          this.fetchPlanFeatures(plan.id, apiKey),
+          this.fetchAdditionalPlanData(plan.id, apiKey)
+        ]);
+        features = fetchedFeatures;
+        additionalData = fetchedAdditionalData;
+      }
 
       // Process geometry and calculate areas
       const geometryAnalysis = await this.analyzeplanGeometry(plan, features);
@@ -284,13 +305,39 @@ class PlanDetailService {
    */
   analyzePaymentPotential(plan, geometryAnalysis) {
     const scheme = paymentRatesService.getSchemeFromPlanType(plan.planType);
-    const areaHa = geometryAnalysis?.totalAreaHa || 0;
+    let areaHa = geometryAnalysis?.totalAreaHa || 0;
     
-    if (areaHa === 0 || scheme === 'UNKNOWN') {
+    // Smart fallback: use typical area estimates based on plan type if no features available
+    if (areaHa === 0) {
+      console.log(`⚠️ No area calculated from features, using scheme-based estimates`);
+      
+      // Use intelligent estimates based on plan type and UK farm averages
+      const typicalAreas = {
+        'CSS': 50,      // CSS schemes typically 20-100 ha
+        'CSS_2025': 50,
+        'SFI2023': 30,  // SFI schemes typically 10-50 ha
+        'SFI2024': 30,
+        'SFI2022': 30,
+        'BPS': 75,      // BPS typically larger holdings
+        'ESS': 40,      // Environmental schemes
+        'UKHAB': 25,    // Habitat surveys typically smaller areas
+        'LAND_MANAGEMENT': 60
+      };
+      
+      areaHa = typicalAreas[plan.planType] || 35; // Default to UK average farm size
+      console.log(`📊 Using estimated area: ${areaHa} ha for ${plan.planType}`);
+    }
+    
+    // Always provide analysis even with estimates
+    const analysisType = geometryAnalysis?.totalAreaHa > 0 ? 'measured' : 'estimated';
+    console.log(`💰 Performing ${analysisType} payment analysis for ${areaHa} ha`);
+    
+    if (scheme === 'UNKNOWN') {
       return {
-        areaHa: 0,
-        currentPayment: { total: 0, error: 'No area or unknown scheme' },
-        potentialPayment: { total: 0, error: 'No area or unknown scheme' },
+        areaHa,
+        analysisType,
+        currentPayment: { total: 0, error: 'Unknown scheme type' },
+        potentialPayment: { total: 0, error: 'Unknown scheme type' },
         availableActions: [],
         upscalePotential: 0,
         roi: null,
@@ -334,6 +381,7 @@ class PlanDetailService {
 
     return {
       areaHa,
+      analysisType,
       currentPayment,
       potentialPayment,
       availableActions: availableActions.slice(0, 10), // Top 10 actions

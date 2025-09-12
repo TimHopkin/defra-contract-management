@@ -57,7 +57,18 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
 
   const handlePlanClick = (plan) => {
     console.log('Plan clicked:', plan);
-    setSelectedPlan(plan);
+    
+    // Find existing features for this plan from the map profile data
+    const planFeatures = profile?.planFeatures?.find(pf => pf.planId === plan.id);
+    const enhancedPlan = {
+      ...plan,
+      existingFeatures: planFeatures?.features || [],
+      hasExistingFeatures: planFeatures?.features?.length > 0 || false,
+      mapProfile: profile // Pass the entire profile for additional context
+    };
+    
+    console.log(`Found ${enhancedPlan.existingFeatures.length} existing features for plan ${plan.name}`);
+    setSelectedPlan(enhancedPlan);
     setShowPlanDetail(true);
   };
 
@@ -88,9 +99,9 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">Plans ({plans.length})</h3>
       <div className="space-y-3 max-h-96 overflow-y-auto">
-        {plans.map((plan) => (
+        {plans.map((plan, index) => (
           <div
-            key={plan.id}
+            key={`overview-plan-${plan.id}-${index}`}
             onClick={() => onPlanClick(plan)}
             className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
           >
@@ -380,9 +391,9 @@ const MapDashboard = ({ landAppApiKey, natureReportingApiKey, onBack }) => {
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <h3 className="text-xl font-bold text-gray-900 mb-6">All Plans ({profile.plans.length})</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {profile.plans.map((plan) => (
+                  {profile.plans.map((plan, index) => (
                     <div
-                      key={plan.id}
+                      key={`plan-${plan.id}-${index}`}
                       onClick={() => handlePlanClick(plan)}
                       className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 cursor-pointer transition-colors border border-gray-200"
                     >
